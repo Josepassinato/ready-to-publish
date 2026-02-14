@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Send, Loader2, Zap, BarChart3, Clock, ShieldOff } from "lucide-react";
+import { Shield, Send, Loader2, Zap, BarChart3, Clock, ShieldOff, Mic, MicOff, Volume2, VolumeX, Loader } from "lucide-react";
+import { useVoice } from "@/hooks/useVoice";
 import { useToast } from "@/hooks/use-toast";
 import type { Msg } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
@@ -39,6 +40,7 @@ const Chat = () => {
   const [llmEnabled, setLlmEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
+  const { isPlaying, isRecording, isTranscribing, speak, stopPlaying, startRecording, stopRecording } = useVoice();
 
   // Load memory context and feature flags on mount
   useEffect(() => {
@@ -339,27 +341,40 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                 }`}
               >
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm prose-invert max-w-none [&_table]:text-sm [&_th]:text-left [&_th]:pr-4 [&_td]:pr-4 [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline">
-                    <ReactMarkdown
-                      components={{
-                        a: ({ href, children }) => (
-                          <a
-                            href={href}
-                            onClick={(e) => {
-                              if (href?.startsWith("/")) {
-                                e.preventDefault();
-                                navigate(href);
-                              }
-                            }}
-                            className="text-primary hover:underline"
-                          >
-                            {children}
-                          </a>
-                        ),
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+                  <div>
+                    <div className="prose prose-sm prose-invert max-w-none [&_table]:text-sm [&_th]:text-left [&_th]:pr-4 [&_td]:pr-4 [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline">
+                      <ReactMarkdown
+                        components={{
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              onClick={(e) => {
+                                if (href?.startsWith("/")) {
+                                  e.preventDefault();
+                                  navigate(href);
+                                }
+                              }}
+                              className="text-primary hover:underline"
+                            >
+                              {children}
+                            </a>
+                          ),
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => isPlaying ? stopPlaying() : speak(msg.content)}
+                        title={isPlaying ? "Parar" : "Ouvir"}
+                      >
+                        {isPlaying ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -409,25 +424,50 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
             </div>
           )}
 
-          <div className="relative">
-            <Textarea
-              ref={undefined}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Descreva sua decisão, peça orientação, ou avalie seu estado..."
-              className="min-h-[52px] max-h-40 resize-none bg-muted border-border pr-12"
-              rows={1}
-              disabled={isLoading}
-            />
+          <div className="relative flex items-end gap-2">
             <Button
               size="icon"
-              className="absolute bottom-2 right-2 h-8 w-8"
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim() || isLoading}
+              variant={isRecording ? "destructive" : "outline"}
+              className="h-10 w-10 shrink-0"
+              onClick={async () => {
+                if (isRecording) {
+                  const text = await stopRecording();
+                  if (text) sendMessage(text);
+                } else {
+                  startRecording();
+                }
+              }}
+              disabled={isLoading || isTranscribing}
+              title={isRecording ? "Parar gravação" : "Gravar voz"}
             >
-              <Send className="h-4 w-4" />
+              {isTranscribing ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
             </Button>
+            <div className="relative flex-1">
+              <Textarea
+                ref={undefined}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Descreva sua decisão, peça orientação, ou avalie seu estado..."
+                className="min-h-[52px] max-h-40 resize-none bg-muted border-border pr-12"
+                rows={1}
+                disabled={isLoading}
+              />
+              <Button
+                size="icon"
+                className="absolute bottom-2 right-2 h-8 w-8"
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim() || isLoading}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
