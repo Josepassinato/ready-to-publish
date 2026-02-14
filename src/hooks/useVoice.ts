@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from "react";
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
-const STT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-stt`;
 const AUTH_HEADERS = {
   apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -11,16 +12,25 @@ const AUTH_HEADERS = {
 export function useVoice() {
   const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [finalTranscript, setFinalTranscript] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+
+  const scribe = useScribe({
+    modelId: "scribe_v2_realtime",
+    commitStrategy: CommitStrategy.VAD,
+    onPartialTranscript: (data) => {
+      setLiveTranscript(data.text);
+    },
+    onCommittedTranscript: (data) => {
+      setFinalTranscript((prev) => (prev ? prev + " " + data.text : data.text));
+      setLiveTranscript("");
+    },
+  });
 
   const speak = useCallback(async (text: string) => {
     if (!text.trim() || isPlaying) return;
 
-    // Strip markdown for cleaner speech
     const cleanText = text
       .replace(/#{1,6}\s?/g, "")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -80,81 +90,49 @@ export function useVoice() {
     setIsPlaying(false);
   }, []);
 
-  const startRecording = useCallback(async (): Promise<void> => {
+  const startRealtimeRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunksRef.current = [];
+      setFinalTranscript("");
+      setLiveTranscript("");
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
+      const { data, error } = await supabase.functions.invoke("elevenlabs-scribe-token");
+      if (error || !data?.token) {
+        throw new Error("Não foi possível obter token de transcrição");
+      }
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
+      await scribe.connect({
+        token: data.token,
+        microphone: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
     } catch (e: any) {
       toast({
         title: "Microfone",
-        description: "Permita o acesso ao microfone para usar a voz.",
+        description: e.message || "Permita o acesso ao microfone para usar a voz.",
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [scribe, toast]);
 
-  const stopRecording = useCallback(async (): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const recorder = mediaRecorderRef.current;
-      if (!recorder || recorder.state === "inactive") {
-        setIsRecording(false);
-        resolve(null);
-        return;
-      }
-
-      recorder.onstop = async () => {
-        setIsRecording(false);
-        setIsTranscribing(true);
-
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        recorder.stream.getTracks().forEach((t) => t.stop());
-
-        try {
-          const formData = new FormData();
-          formData.append("audio", blob, "recording.webm");
-
-          const response = await fetch(STT_URL, {
-            method: "POST",
-            headers: AUTH_HEADERS,
-            body: formData,
-          });
-
-          if (!response.ok) {
-            const err = await response.json().catch(() => ({ error: "Erro na transcrição" }));
-            throw new Error(err.error || `Erro ${response.status}`);
-          }
-
-          const data = await response.json();
-          setIsTranscribing(false);
-          resolve(data.text || null);
-        } catch (e: any) {
-          setIsTranscribing(false);
-          toast({ title: "Erro na transcrição", description: e.message, variant: "destructive" });
-          resolve(null);
-        }
-      };
-
-      recorder.stop();
-    });
-  }, [toast]);
+  const stopRealtimeRecording = useCallback((): string => {
+    scribe.disconnect();
+    const result = (finalTranscript + (liveTranscript ? " " + liveTranscript : "")).trim();
+    setFinalTranscript("");
+    setLiveTranscript("");
+    return result;
+  }, [scribe, finalTranscript, liveTranscript]);
 
   return {
     isPlaying,
-    isRecording,
-    isTranscribing,
+    isRecording: scribe.isConnected,
+    liveTranscript,
+    finalTranscript,
+    currentTranscript: (finalTranscript + (liveTranscript ? " " + liveTranscript : "")).trim(),
     speak,
     stopPlaying,
-    startRecording,
-    stopRecording,
+    startRecording: startRealtimeRecording,
+    stopRecording: stopRealtimeRecording,
   };
 }

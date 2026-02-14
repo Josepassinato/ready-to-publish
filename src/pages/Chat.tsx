@@ -40,7 +40,7 @@ const Chat = () => {
   const [llmEnabled, setLlmEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
-  const { isPlaying, isRecording, isTranscribing, speak, stopPlaying, startRecording, stopRecording } = useVoice();
+  const { isPlaying, isRecording, currentTranscript, speak, stopPlaying, startRecording, stopRecording } = useVoice();
 
   // Load memory context and feature flags on mount
   useEffect(() => {
@@ -424,25 +424,30 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
             </div>
           )}
 
+          {/* Live transcript preview */}
+          {isRecording && currentTranscript && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground animate-pulse">
+              🎙️ {currentTranscript}
+            </div>
+          )}
+
           <div className="relative flex items-end gap-2">
             <Button
               size="icon"
               variant={isRecording ? "destructive" : "outline"}
-              className="h-10 w-10 shrink-0"
-              onClick={async () => {
+              className={`h-10 w-10 shrink-0 ${isRecording ? "animate-pulse" : ""}`}
+              onClick={() => {
                 if (isRecording) {
-                  const text = await stopRecording();
+                  const text = stopRecording();
                   if (text) sendMessage(text);
                 } else {
                   startRecording();
                 }
               }}
-              disabled={isLoading || isTranscribing}
-              title={isRecording ? "Parar gravação" : "Gravar voz"}
+              disabled={isLoading}
+              title={isRecording ? "Parar e enviar" : "Falar em tempo real"}
             >
-              {isTranscribing ? (
-                <Loader className="h-4 w-4 animate-spin" />
-              ) : isRecording ? (
+              {isRecording ? (
                 <MicOff className="h-4 w-4" />
               ) : (
                 <Mic className="h-4 w-4" />
