@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Você é o LifeOS — um sistema de governo de decisão pessoal e empresarial baseado no Protocolo Luz & Vaso, Constituição Artigos I–VII.
+const BASE_SYSTEM_PROMPT = `Você é o LifeOS — um sistema de governo de decisão pessoal e empresarial baseado no Protocolo Luz & Vaso, Constituição Artigos I–VII.
 
 ## Sua Personalidade
 - Direto, preciso, empático mas nunca permissivo
@@ -14,6 +14,7 @@ const SYSTEM_PROMPT = `Você é o LifeOS — um sistema de governo de decisão p
 - Usa linguagem profissional mas acessível
 - Nunca julga a pessoa, mas avalia friamente a situação
 - Responde SEMPRE em português brasileiro
+- Você tem MEMÓRIA — use as informações que já conhece sobre o usuário para personalizar cada resposta
 
 ## Suas Capacidades
 
@@ -34,6 +35,9 @@ Comente sobre o histórico do usuário, identifique padrões recorrentes, tendê
 
 ### 3. Coaching Contínuo
 Ofereça orientação proativa baseada no estado atual. Sugira ações concretas.
+
+### 4. Aprendizado Contínuo
+Após cada interação significativa, extraia insights sobre o usuário usando a tool "update_memory" para atualizar o perfil evolutivo.
 
 ## Regras da Constituição
 - **Art. I**: A IA nunca decide fora das regras. Ela executa governo.
@@ -62,101 +66,138 @@ Ofereça orientação proativa baseada no estado atual. Sugira ações concretas
 - Seja conciso mas completo
 
 ## Mensagem Inicial
-Quando não há contexto, apresente-se brevemente e pergunte o que o usuário precisa: tomar uma decisão, revisar seu estado atual, ou receber orientação.`;
+Quando não há contexto, apresente-se brevemente e pergunte o que o usuário precisa: tomar uma decisão, revisar seu estado atual, ou receber orientação. Se já conhece o usuário, cumprimente-o pelo nome e faça referência ao contexto que já possui.`;
+
+function buildSystemPrompt(memoryContext?: string): string {
+  if (!memoryContext) return BASE_SYSTEM_PROMPT;
+  return `${BASE_SYSTEM_PROMPT}\n\n## Contexto do Usuário (Memória de Longo Prazo)\n${memoryContext}`;
+}
+
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "run_governance",
+      description:
+        "Extract all governance assessment data from the conversation to run the decision engine. Call this when you have collected enough data from the user.",
+      parameters: {
+        type: "object",
+        properties: {
+          assessment: {
+            type: "object",
+            properties: {
+              energy: { type: "number", description: "0-100" },
+              clarity: { type: "number", description: "0-100" },
+              stress: { type: "number", description: "0-100, high=bad" },
+              confidence: { type: "number", description: "0-100" },
+              load: { type: "number", description: "0-100, high=bad" },
+            },
+            required: ["energy", "clarity", "stress", "confidence", "load"],
+          },
+          business: {
+            type: "object",
+            properties: {
+              revenue: { type: "number" },
+              costs: { type: "number" },
+              founderDependence: { type: "number", description: "0-100" },
+              activeFronts: { type: "number", description: "1-10" },
+              processMaturity: { type: "number", description: "0-100" },
+              delegationCapacity: { type: "number", description: "0-100" },
+            },
+            required: ["revenue", "costs", "founderDependence", "activeFronts", "processMaturity", "delegationCapacity"],
+          },
+          financial: {
+            type: "object",
+            properties: {
+              revenue: { type: "number" },
+              cash: { type: "number" },
+              debt: { type: "number" },
+              fixedCosts: { type: "number" },
+              intendedLeverage: { type: "number" },
+            },
+            required: ["revenue", "cash", "debt", "fixedCosts", "intendedLeverage"],
+          },
+          relational: {
+            type: "object",
+            properties: {
+              activeConflicts: { type: "number" },
+              criticalDependencies: { type: "number" },
+              partnerAlignment: { type: "number", description: "0-100" },
+              teamStability: { type: "number", description: "0-100" },
+              ecosystemHealth: { type: "number", description: "0-100" },
+            },
+            required: ["activeConflicts", "criticalDependencies", "partnerAlignment", "teamStability", "ecosystemHealth"],
+          },
+          decision: {
+            type: "object",
+            properties: {
+              description: { type: "string" },
+              type: { type: "string", enum: ["existential", "structural", "strategic", "tactical"] },
+              impact: { type: "string", enum: ["transformational", "high", "medium", "low"] },
+              reversibility: { type: "string", enum: ["irreversible", "difficult", "moderate", "easy"] },
+              urgency: { type: "string", enum: ["critical", "high", "moderate", "low"] },
+              resourcesRequired: { type: "string", enum: ["massive", "significant", "moderate", "minimal"] },
+            },
+            required: ["description", "type", "impact", "reversibility", "urgency", "resourcesRequired"],
+          },
+        },
+        required: ["assessment", "business", "financial", "relational", "decision"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_memory",
+      description:
+        "Extract new insights, patterns, or updated information about the user from the conversation. Call this when you learn something new about the user that should be remembered for future sessions.",
+      parameters: {
+        type: "object",
+        properties: {
+          entries: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                category: {
+                  type: "string",
+                  enum: ["profile", "business", "emotional", "patterns", "preferences", "insights"],
+                },
+                key: { type: "string", description: "A short key describing the fact" },
+                value: { type: "string", description: "The value/content to remember" },
+              },
+              required: ["category", "key", "value"],
+            },
+          },
+        },
+        required: ["entries"],
+      },
+    },
+  },
+];
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, extractData } = await req.json();
+    const { messages, extractData, memoryContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const systemPrompt = buildSystemPrompt(memoryContext);
 
     const body: Record<string, unknown> = {
       model: "google/gemini-3-flash-preview",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         ...messages,
       ],
       stream: !extractData,
     };
 
-    // When extracting structured governance data, use tool calling
     if (extractData) {
-      body.tools = [
-        {
-          type: "function",
-          function: {
-            name: "run_governance",
-            description:
-              "Extract all governance assessment data from the conversation to run the decision engine. Call this when you have collected enough data from the user.",
-            parameters: {
-              type: "object",
-              properties: {
-                assessment: {
-                  type: "object",
-                  properties: {
-                    energy: { type: "number", description: "0-100" },
-                    clarity: { type: "number", description: "0-100" },
-                    stress: { type: "number", description: "0-100, high=bad" },
-                    confidence: { type: "number", description: "0-100" },
-                    load: { type: "number", description: "0-100, high=bad" },
-                  },
-                  required: ["energy", "clarity", "stress", "confidence", "load"],
-                },
-                business: {
-                  type: "object",
-                  properties: {
-                    revenue: { type: "number" },
-                    costs: { type: "number" },
-                    founderDependence: { type: "number", description: "0-100" },
-                    activeFronts: { type: "number", description: "1-10" },
-                    processMaturity: { type: "number", description: "0-100" },
-                    delegationCapacity: { type: "number", description: "0-100" },
-                  },
-                  required: ["revenue", "costs", "founderDependence", "activeFronts", "processMaturity", "delegationCapacity"],
-                },
-                financial: {
-                  type: "object",
-                  properties: {
-                    revenue: { type: "number" },
-                    cash: { type: "number" },
-                    debt: { type: "number" },
-                    fixedCosts: { type: "number" },
-                    intendedLeverage: { type: "number" },
-                  },
-                  required: ["revenue", "cash", "debt", "fixedCosts", "intendedLeverage"],
-                },
-                relational: {
-                  type: "object",
-                  properties: {
-                    activeConflicts: { type: "number" },
-                    criticalDependencies: { type: "number" },
-                    partnerAlignment: { type: "number", description: "0-100" },
-                    teamStability: { type: "number", description: "0-100" },
-                    ecosystemHealth: { type: "number", description: "0-100" },
-                  },
-                  required: ["activeConflicts", "criticalDependencies", "partnerAlignment", "teamStability", "ecosystemHealth"],
-                },
-                decision: {
-                  type: "object",
-                  properties: {
-                    description: { type: "string" },
-                    type: { type: "string", enum: ["existential", "structural", "strategic", "tactical"] },
-                    impact: { type: "string", enum: ["transformational", "high", "medium", "low"] },
-                    reversibility: { type: "string", enum: ["irreversible", "difficult", "moderate", "easy"] },
-                    urgency: { type: "string", enum: ["critical", "high", "moderate", "low"] },
-                    resourcesRequired: { type: "string", enum: ["massive", "significant", "moderate", "minimal"] },
-                  },
-                  required: ["description", "type", "impact", "reversibility", "urgency", "resourcesRequired"],
-                },
-              },
-              required: ["assessment", "business", "financial", "relational", "decision"],
-            },
-          },
-        },
-      ];
+      body.tools = [TOOLS[0]]; // only run_governance for extraction
       body.tool_choice = { type: "function", function: { name: "run_governance" } };
     }
 
@@ -194,7 +235,6 @@ serve(async (req) => {
     }
 
     if (extractData) {
-      // Non-streaming: return tool call result
       const data = await response.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

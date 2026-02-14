@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       decisions: {
         Row: {
           blocked: boolean
@@ -166,6 +204,7 @@ export type Database = {
           created_at: string | null
           id: string
           name: string | null
+          onboarding_completed: boolean | null
           role: string | null
           updated_at: string | null
         }
@@ -174,6 +213,7 @@ export type Database = {
           created_at?: string | null
           id: string
           name?: string | null
+          onboarding_completed?: boolean | null
           role?: string | null
           updated_at?: string | null
         }
@@ -182,6 +222,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           name?: string | null
+          onboarding_completed?: boolean | null
           role?: string | null
           updated_at?: string | null
         }
@@ -308,6 +349,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "state_classifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_memory: {
+        Row: {
+          category: string
+          confidence: number | null
+          created_at: string
+          id: string
+          key: string
+          source: string | null
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          category: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          key: string
+          source?: string | null
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          category?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          key?: string
+          source?: string | null
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_memory_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

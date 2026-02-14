@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { streamChat, extractGovernanceData } from "@/lib/chat-stream";
 import { govern } from "@/lib/governance-engine";
 import { saveDecision, saveStateClassification } from "@/lib/supabase-utils";
+import { getUserMemoryContext, saveChatMessages } from "@/lib/memory";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +32,16 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [memoryContext, setMemoryContext] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sessionIdRef = useRef(crypto.randomUUID());
+
+  // Load memory context on mount
+  useEffect(() => {
+    if (user) {
+      getUserMemoryContext(user.id).then(setMemoryContext);
+    }
+  }, [user]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,8 +91,18 @@ const Chat = () => {
     try {
       await streamChat({
         messages: allMessages,
+        memoryContext,
         onDelta: (chunk) => upsertAssistant(chunk),
-        onDone: () => setIsLoading(false),
+        onDone: () => {
+          setIsLoading(false);
+          // Persist messages
+          if (user && assistantSoFar) {
+            saveChatMessages(user.id, sessionIdRef.current, [
+              { role: "user", content: text.trim() },
+              { role: "assistant", content: assistantSoFar },
+            ]);
+          }
+        },
       });
     } catch (e: any) {
       console.error(e);
@@ -115,7 +134,6 @@ const Chat = () => {
         extracted.decision
       );
 
-      // Augment for saving
       (result as any)._description = extracted.decision.description;
       (result as any)._impact = extracted.decision.impact;
       (result as any)._reversibility = extracted.decision.reversibility;
@@ -134,7 +152,6 @@ const Chat = () => {
 
       const saved = await saveDecision(result, user.id);
 
-      // Add result summary to chat
       const verdictEmoji = result.verdict === "SIM" ? "🟢" : "🔴";
       const resultMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -298,7 +315,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
 
           <div className="relative">
             <Textarea
-              ref={textareaRef}
+              ref={undefined}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
