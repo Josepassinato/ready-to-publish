@@ -48,6 +48,26 @@ const Auth = () => {
     }
   };
 
+  const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
+
+  const handleTestBypass = async () => {
+    setSubmitting(true);
+    try {
+      const { error } = await signIn("test@lifeos.dev", "test1234");
+      if (error) {
+        // If test account doesn't exist, create it
+        const { error: signUpError } = await signUp("test@lifeos.dev", "test1234", "Test User");
+        if (signUpError) {
+          toast({ title: "Erro no modo teste", description: signUpError.message, variant: "destructive" });
+        } else {
+          await signIn("test@lifeos.dev", "test1234");
+        }
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
@@ -135,6 +155,17 @@ const Auth = () => {
             </form>
           </CardContent>
         </Card>
+
+        {isTestMode && (
+          <Button
+            variant="outline"
+            className="w-full border-dashed border-warning text-warning hover:bg-warning/10"
+            onClick={handleTestBypass}
+            disabled={submitting}
+          >
+            ⚡ Entrar em Modo Teste
+          </Button>
+        )}
 
         <p className="text-center text-xs text-muted-foreground">
           Protocolo Luz & Vaso · Constituição Artigos I–VII
