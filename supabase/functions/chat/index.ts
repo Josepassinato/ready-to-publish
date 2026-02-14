@@ -1,0 +1,215 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const SYSTEM_PROMPT = `Você é o LifeOS — um sistema de governo de decisão pessoal e empresarial baseado no Protocolo Luz & Vaso, Constituição Artigos I–VII.
+
+## Sua Personalidade
+- Direto, preciso, empático mas nunca permissivo
+- Fala como um conselheiro sênior: firme, claro, sem rodeios
+- Usa linguagem profissional mas acessível
+- Nunca julga a pessoa, mas avalia friamente a situação
+- Responde SEMPRE em português brasileiro
+
+## Suas Capacidades
+
+### 1. Guiar Decisões
+Quando o usuário quer tomar uma decisão, conduza uma avaliação completa coletando dados sobre:
+- **Assessment do Líder**: energia (0-100), clareza mental (0-100), estresse (0-100, alto=ruim), confiança (0-100), carga decisória (0-100, alto=ruim)
+- **Negócio**: receita, custos, dependência do fundador, frentes ativas, maturidade de processos, delegação
+- **Financeiro**: receita, caixa, dívida, custos fixos, alavancagem pretendida
+- **Relacional**: conflitos ativos, dependências críticas, alinhamento com parceiros, estabilidade do time, saúde do ecossistema
+- **A Decisão**: descrição, tipo (existencial/estrutural/estratégica/tática), impacto, reversibilidade, urgência, recursos
+
+Colete essas informações de forma CONVERSACIONAL — não como formulário. Faça perguntas inteligentes, agrupe quando fizer sentido, e adapte baseado nas respostas.
+
+Quando tiver dados suficientes, use a tool "run_governance" para processar.
+
+### 2. Analisar Padrões
+Comente sobre o histórico do usuário, identifique padrões recorrentes, tendências de melhoria ou deterioração.
+
+### 3. Coaching Contínuo
+Ofereça orientação proativa baseada no estado atual. Sugira ações concretas.
+
+## Regras da Constituição
+- **Art. I**: A IA nunca decide fora das regras. Ela executa governo.
+- **Art. II**: Estado é classificado por energia, clareza, estresse, confiança e carga
+- **Art. III**: Decisões são bloqueadas se o estado não comporta
+- **Art. IV**: Hierarquia de decisão: Existencial > Estrutural > Estratégica > Tática
+- **Art. V**: Cenários são simulados antes de qualquer veredito
+- **Art. VI**: Plano de prontidão é gerado quando decisão é bloqueada
+- **Art. VII**: O sistema protege o líder de si mesmo
+
+## Estados de Capacidade
+- Falha Estrutural Ativa (0-15): BLOQUEIO total
+- Capacidade Insuficiente (16-30): Apenas táticas simples
+- Risco de Falha (20-35): Atenção máxima
+- Sob Tensão (36-50): Decisões limitadas
+- Recuperação (20-40): Foco em reconstruir
+- Em Construção (40-60): Crescimento controlado
+- Capacidade Estável (55-75): Decisões estratégicas permitidas
+- Expansão Controlada (76-100): Todas decisões permitidas
+
+## Formato de Respostas
+- Use **markdown** para formatar
+- Use emojis com moderação (🟢 🟡 🔴 para indicadores)
+- Tabelas para comparações
+- Bullet points para ações
+- Seja conciso mas completo
+
+## Mensagem Inicial
+Quando não há contexto, apresente-se brevemente e pergunte o que o usuário precisa: tomar uma decisão, revisar seu estado atual, ou receber orientação.`;
+
+serve(async (req) => {
+  if (req.method === "OPTIONS")
+    return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { messages, extractData } = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const body: Record<string, unknown> = {
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...messages,
+      ],
+      stream: !extractData,
+    };
+
+    // When extracting structured governance data, use tool calling
+    if (extractData) {
+      body.tools = [
+        {
+          type: "function",
+          function: {
+            name: "run_governance",
+            description:
+              "Extract all governance assessment data from the conversation to run the decision engine. Call this when you have collected enough data from the user.",
+            parameters: {
+              type: "object",
+              properties: {
+                assessment: {
+                  type: "object",
+                  properties: {
+                    energy: { type: "number", description: "0-100" },
+                    clarity: { type: "number", description: "0-100" },
+                    stress: { type: "number", description: "0-100, high=bad" },
+                    confidence: { type: "number", description: "0-100" },
+                    load: { type: "number", description: "0-100, high=bad" },
+                  },
+                  required: ["energy", "clarity", "stress", "confidence", "load"],
+                },
+                business: {
+                  type: "object",
+                  properties: {
+                    revenue: { type: "number" },
+                    costs: { type: "number" },
+                    founderDependence: { type: "number", description: "0-100" },
+                    activeFronts: { type: "number", description: "1-10" },
+                    processMaturity: { type: "number", description: "0-100" },
+                    delegationCapacity: { type: "number", description: "0-100" },
+                  },
+                  required: ["revenue", "costs", "founderDependence", "activeFronts", "processMaturity", "delegationCapacity"],
+                },
+                financial: {
+                  type: "object",
+                  properties: {
+                    revenue: { type: "number" },
+                    cash: { type: "number" },
+                    debt: { type: "number" },
+                    fixedCosts: { type: "number" },
+                    intendedLeverage: { type: "number" },
+                  },
+                  required: ["revenue", "cash", "debt", "fixedCosts", "intendedLeverage"],
+                },
+                relational: {
+                  type: "object",
+                  properties: {
+                    activeConflicts: { type: "number" },
+                    criticalDependencies: { type: "number" },
+                    partnerAlignment: { type: "number", description: "0-100" },
+                    teamStability: { type: "number", description: "0-100" },
+                    ecosystemHealth: { type: "number", description: "0-100" },
+                  },
+                  required: ["activeConflicts", "criticalDependencies", "partnerAlignment", "teamStability", "ecosystemHealth"],
+                },
+                decision: {
+                  type: "object",
+                  properties: {
+                    description: { type: "string" },
+                    type: { type: "string", enum: ["existential", "structural", "strategic", "tactical"] },
+                    impact: { type: "string", enum: ["transformational", "high", "medium", "low"] },
+                    reversibility: { type: "string", enum: ["irreversible", "difficult", "moderate", "easy"] },
+                    urgency: { type: "string", enum: ["critical", "high", "moderate", "low"] },
+                    resourcesRequired: { type: "string", enum: ["massive", "significant", "moderate", "minimal"] },
+                  },
+                  required: ["description", "type", "impact", "reversibility", "urgency", "resourcesRequired"],
+                },
+              },
+              required: ["assessment", "business", "financial", "relational", "decision"],
+            },
+          },
+        },
+      ];
+      body.tool_choice = { type: "function", function: { name: "run_governance" } };
+    }
+
+    const response = await fetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
+      return new Response(
+        JSON.stringify({ error: "Erro no gateway de IA" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (extractData) {
+      // Non-streaming: return tool call result
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Streaming
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
+  } catch (e) {
+    console.error("chat error:", e);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Erro desconhecido" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
