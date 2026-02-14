@@ -4,11 +4,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { streamChat, extractGovernanceData } from "@/lib/chat-stream";
 import { govern } from "@/lib/governance-engine";
 import { saveDecision, saveStateClassification } from "@/lib/supabase-utils";
+import { recordPipelineAudit } from "@/lib/audit-logger";
+import { isLLMEnabled, setFeatureFlag, FLAGS } from "@/lib/feature-flags";
 import { getUserMemoryContext, saveChatMessages } from "@/lib/memory";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Send, Loader2, Zap, BarChart3, Clock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Shield, Send, Loader2, Zap, BarChart3, Clock, ShieldOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Msg } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
@@ -33,13 +36,15 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [memoryContext, setMemoryContext] = useState<string>("");
+  const [llmEnabled, setLlmEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
 
-  // Load memory context on mount
+  // Load memory context and feature flags on mount
   useEffect(() => {
     if (user) {
       getUserMemoryContext(user.id).then(setMemoryContext);
+      isLLMEnabled(user.id).then(setLlmEnabled);
     }
   }, [user]);
 
@@ -51,8 +56,38 @@ const Chat = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  const handleToggleLLM = async () => {
+    if (!user) return;
+    const newValue = !llmEnabled;
+    setLlmEnabled(newValue);
+    await setFeatureFlag(user.id, FLAGS.LLM_ENABLED, newValue);
+    toast({
+      title: newValue ? "IA Ativada" : "Kill-Switch Ativado",
+      description: newValue
+        ? "A IA voltou a operar normalmente."
+        : "Modo rules-only ativo. Vereditos serão puramente estruturados.",
+    });
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    // Kill-switch: block AI chat when LLM is disabled
+    if (!llmEnabled) {
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text.trim(),
+      };
+      const systemMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `🛡️ **Kill-Switch Ativo** — A IA está desativada. O sistema opera em modo rules-only.\n\nVocê pode:\n- **Processar decisões** pelo botão abaixo (motor determinístico)\n- **Reativar a IA** pelo toggle no canto superior\n\nNenhuma IA é consultada neste modo. Apenas as regras da Constituição Art. I–VII são executadas.`,
+      };
+      setMessages((prev) => [...prev, userMsg, systemMsg]);
+      setInput("");
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -95,7 +130,6 @@ const Chat = () => {
         onDelta: (chunk) => upsertAssistant(chunk),
         onDone: () => {
           setIsLoading(false);
-          // Persist messages
           if (user && assistantSoFar) {
             saveChatMessages(user.id, sessionIdRef.current, [
               { role: "user", content: text.trim() },
@@ -120,12 +154,27 @@ const Chat = () => {
     setIsExtracting(true);
 
     try {
-      const allMsgs: Msg[] = messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      let extracted;
 
-      const extracted = await extractGovernanceData(allMsgs);
+      if (llmEnabled) {
+        // Normal mode: use AI to extract data from conversation
+        const allMsgs: Msg[] = messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        extracted = await extractGovernanceData(allMsgs);
+      } else {
+        // Kill-switch mode: prompt user that extraction requires manual data
+        // For now, try to extract from the last messages without AI
+        toast({
+          title: "Modo Rules-Only",
+          description: "A IA está desativada. Utilize o fluxo completo de decisão para inserir dados manualmente.",
+        });
+        setIsExtracting(false);
+        navigate("/decision/new");
+        return;
+      }
+
       const result = govern(
         extracted.assessment,
         extracted.business,
@@ -139,6 +188,15 @@ const Chat = () => {
       (result as any)._reversibility = extracted.decision.reversibility;
       (result as any)._urgency = extracted.decision.urgency;
       (result as any)._resourcesRequired = extracted.decision.resourcesRequired;
+
+      // Audit Logger: record full pipeline (non-blocking)
+      recordPipelineAudit(user.id, {
+        assessment: extracted.assessment,
+        business: extracted.business,
+        financial: extracted.financial,
+        relational: extracted.relational,
+        decision: extracted.decision,
+      }, result).catch(err => console.error("[AuditLogger]", err));
 
       await saveStateClassification(
         user.id,
@@ -197,9 +255,47 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
+      {/* Kill-Switch Banner */}
+      <div className="flex items-center justify-between border-b border-border bg-background/95 px-4 py-2">
+        <div className="flex items-center gap-2">
+          {!llmEnabled && (
+            <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive">
+              <ShieldOff className="h-3 w-3" />
+              Rules-Only
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{llmEnabled ? "IA Ativa" : "Kill-Switch"}</span>
+          <Switch
+            checked={llmEnabled}
+            onCheckedChange={handleToggleLLM}
+            className="data-[state=unchecked]:bg-destructive/50"
+          />
+        </div>
+      </div>
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="mx-auto max-w-3xl space-y-6 pt-6">
+          {!llmEnabled && messages.length === 0 && (
+            <div className="mx-auto max-w-md rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-center">
+              <ShieldOff className="mx-auto mb-2 h-8 w-8 text-destructive" />
+              <h3 className="font-semibold text-foreground">Modo Rules-Only</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                A IA está desativada. O motor de governança opera exclusivamente pelas regras da Constituição Art. I–VII. Use o fluxo de decisão para processar vereditos determinísticos.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => navigate("/decision/new")}
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Iniciar Decisão Manual
+              </Button>
+            </div>
+          )}
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 space-y-8">
               <div className="space-y-3 text-center">
