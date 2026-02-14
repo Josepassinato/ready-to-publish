@@ -14,6 +14,7 @@ import DecisionVerdict from "./pages/DecisionVerdict";
 import History from "./pages/History";
 import Plans from "./pages/Plans";
 import Evolution from "./pages/Evolution";
+import Channels from "./pages/Channels";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/history" element={<History />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/evolution" element={<Evolution />} />
+              <Route path="/channels" element={<Channels />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
