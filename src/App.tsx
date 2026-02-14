@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import AppLayout from "./components/AppLayout";
+import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import DecisionNew from "./pages/DecisionNew";
 import DecisionVerdict from "./pages/DecisionVerdict";
@@ -24,9 +25,10 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/chat" replace />} />
             <Route path="/auth" element={<Auth />} />
             <Route element={<AppLayout />}>
+              <Route path="/chat" element={<Chat />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/decision/new" element={<DecisionNew />} />
               <Route path="/decision/:id" element={<DecisionVerdict />} />

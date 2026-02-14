@@ -1,9 +1,10 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
-import { Shield, LayoutDashboard, PlusCircle, Clock, ListChecks, TrendingUp, LogOut } from "lucide-react";
+import { Shield, MessageSquare, LayoutDashboard, PlusCircle, Clock, ListChecks, TrendingUp, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
+  { to: "/chat", label: "Chat", icon: MessageSquare },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/decision/new", label: "Nova Decisão", icon: PlusCircle },
   { to: "/history", label: "Histórico", icon: Clock },
@@ -25,11 +26,13 @@ const AppLayout = () => {
 
   if (!user) return <Navigate to="/auth" replace />;
 
+  const isChatRoute = location.pathname === "/chat";
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="container flex h-14 items-center justify-between">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <Link to="/chat" className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <span className="font-bold text-foreground">LifeOS</span>
           </Link>
@@ -60,14 +63,14 @@ const AppLayout = () => {
         </div>
       </header>
 
-      <main className="container py-6">
+      <main className={isChatRoute ? "" : "container py-6"}>
         <Outlet />
       </main>
 
       {/* Mobile nav */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm md:hidden">
         <div className="flex items-center justify-around py-2">
-          {NAV_ITEMS.slice(0, 4).map((item) => {
+          {NAV_ITEMS.slice(0, 5).map((item) => {
             const active = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
             return (
               <Link
