@@ -150,6 +150,60 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          enabled: boolean
+          flag_name: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          flag_name: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          flag_name?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      governance_audit_log: {
+        Row: {
+          constitution_version: string
+          created_at: string
+          event_data: Json
+          event_type: string
+          id: string
+          pipeline_id: string
+          user_id: string
+        }
+        Insert: {
+          constitution_version: string
+          created_at?: string
+          event_data?: Json
+          event_type: string
+          id?: string
+          pipeline_id: string
+          user_id: string
+        }
+        Update: {
+          constitution_version?: string
+          created_at?: string
+          event_data?: Json
+          event_type?: string
+          id?: string
+          pipeline_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plan_actions: {
         Row: {
           action_index: number
