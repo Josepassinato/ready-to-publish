@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      channel_configs: {
+        Row: {
+          channel_type: string
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+          webhook_registered: boolean
+        }
+        Insert: {
+          channel_type: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+          webhook_registered?: boolean
+        }
+        Update: {
+          channel_type?: string
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+          webhook_registered?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_configs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string

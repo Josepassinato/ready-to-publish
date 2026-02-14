@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
 import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
-import { Shield, MessageSquare, LayoutDashboard, PlusCircle, Clock, ListChecks, TrendingUp, LogOut } from "lucide-react";
+import { Shield, MessageSquare, LayoutDashboard, PlusCircle, Clock, ListChecks, TrendingUp, LogOut, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: "/history", label: "Histórico", icon: Clock },
   { to: "/plans", label: "Planos", icon: ListChecks },
   { to: "/evolution", label: "Evolução", icon: TrendingUp },
+  { to: "/channels", label: "Canais", icon: Radio },
 ];
 
 const AppLayout = () => {
