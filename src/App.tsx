@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import AppLayout from "./components/AppLayout";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
@@ -27,6 +28,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/chat" replace />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route element={<AppLayout />}>
               <Route path="/chat" element={<Chat />} />
               <Route path="/dashboard" element={<Dashboard />} />

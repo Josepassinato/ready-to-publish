@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useOnboardingCheck } from "@/hooks/useOnboardingCheck";
 import { Navigate, Outlet, Link, useLocation } from "react-router-dom";
 import { Shield, MessageSquare, LayoutDashboard, PlusCircle, Clock, ListChecks, TrendingUp, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,10 @@ const NAV_ITEMS = [
 
 const AppLayout = () => {
   const { user, loading, signOut } = useAuth();
+  const { needsOnboarding, loading: onboardingLoading } = useOnboardingCheck();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || onboardingLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -25,6 +27,7 @@ const AppLayout = () => {
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+  if (needsOnboarding) return <Navigate to="/onboarding" replace />;
 
   const isChatRoute = location.pathname === "/chat";
 
