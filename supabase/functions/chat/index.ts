@@ -182,36 +182,89 @@ serve(async (req) => {
 
   try {
     const { messages, extractData, memoryContext } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const systemPrompt = buildSystemPrompt(memoryContext);
 
-    const body: Record<string, unknown> = {
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
-      stream: !extractData,
-    };
-
     if (extractData) {
-      body.tools = [TOOLS[0]]; // only run_governance for extraction
-      body.tool_choice = { type: "function", function: { name: "run_governance" } };
-    }
+      // Non-streaming extraction mode
+      const body = {
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+        tools: [{
+          name: "run_governance",
+          description: TOOLS[0].function.description,
+          input_schema: TOOLS[0].function.parameters,
+        }],
+        tool_choice: { type: "tool", name: "run_governance" },
+      };
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const t = await response.text();
+        console.error("Anthropic API error:", response.status, t);
+        return new Response(
+          JSON.stringify({ error: "Erro no gateway de IA" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    );
+
+      const data = await response.json();
+      // Transform Anthropic format to OpenAI-compatible format for frontend
+      const toolUse = data.content?.find((b: any) => b.type === "tool_use");
+      const openAIFormat = {
+        choices: [{
+          message: {
+            tool_calls: toolUse ? [{
+              function: {
+                name: toolUse.name,
+                arguments: JSON.stringify(toolUse.input),
+              }
+            }] : []
+          }
+        }]
+      };
+      return new Response(JSON.stringify(openAIFormat), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Streaming chat mode
+    const body = {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      stream: true,
+      system: systemPrompt,
+      messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+    };
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -222,27 +275,64 @@ serve(async (req) => {
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
+          JSON.stringify({ error: "Créditos insuficientes. Verifique sua conta na Anthropic." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      console.error("Anthropic API error:", response.status, t);
       return new Response(
         JSON.stringify({ error: "Erro no gateway de IA" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (extractData) {
-      const data = await response.json();
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Transform Anthropic SSE stream to OpenAI-compatible format
+    const reader = response.body!.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-    // Streaming
-    return new Response(response.body, {
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let nlIdx;
+            while ((nlIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, nlIdx);
+              buffer = buffer.slice(nlIdx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+
+              if (!line.startsWith("data: ") || line.trim() === "") continue;
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr) continue;
+
+              try {
+                const event = JSON.parse(jsonStr);
+                if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+                  const openAIChunk = {
+                    choices: [{ delta: { content: event.delta.text } }]
+                  };
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`));
+                } else if (event.type === "message_stop") {
+                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                }
+              } catch { /* skip non-JSON lines */ }
+            }
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (e) {
+          controller.error(e);
+        }
+      }
+    });
+
+    return new Response(stream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {

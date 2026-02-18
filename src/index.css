@@ -82,11 +82,130 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Safe area insets for notched phones */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
   }
 }
 
 @layer utilities {
   .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* ── MOBILE OPTIMIZATIONS ─────────────────────────────── */
+
+/* PWA standalone mode: pad top for status bar */
+@media all and (display-mode: standalone) {
+  .app-header {
+    padding-top: var(--safe-top);
+  }
+  .app-bottom-nav {
+    padding-bottom: var(--safe-bottom);
+  }
+}
+
+/* Bottom nav spacing so content isn't hidden behind it */
+@media (max-width: 767px) {
+  .app-main {
+    padding-bottom: calc(70px + var(--safe-bottom, 0px));
+  }
+  .chat-main {
+    padding-bottom: 0;
+  }
+}
+
+/* Touch-friendly targets (minimum 44px per Apple HIG) */
+@media (pointer: coarse) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Exception for inline text buttons */
+  .inline-btn {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Prevent iOS input zoom (font-size < 16px triggers zoom) */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Hide scrollbar on mobile chat */
+@media (max-width: 767px) {
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Smooth iOS scroll */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Mobile & PWA ───────────────────────────────────────────── */
+
+/* Safe areas for notched phones (iPhone X+) */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Prevent pull-to-refresh on mobile in PWA */
+html {
+  overscroll-behavior: none;
+}
+
+/* Mobile tap highlight */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection on nav/buttons */
+nav, button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix iOS input zoom (font-size < 16px triggers zoom) */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Bottom nav spacing for pages with mobile nav */
+@media (max-width: 768px) {
+  .mobile-nav-padding {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   }
 }

@@ -68,34 +68,34 @@ const DecisionVerdict = () => {
   }) || [];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4 md:space-y-6 px-0">
       {/* Verdict header */}
       <Card className={`border-2 ${isSim ? "border-success/30 bg-success/5" : "border-destructive/30 bg-destructive/5"}`}>
-        <CardContent className="flex items-center gap-4 py-6">
+        <CardContent className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 py-5 sm:py-6 text-center sm:text-left">
           {isSim ? (
-            <CheckCircle className="h-12 w-12 text-success shrink-0" />
+            <CheckCircle className="h-10 w-10 sm:h-12 sm:w-12 text-success shrink-0" />
           ) : (
-            <ShieldAlert className="h-12 w-12 text-destructive shrink-0" />
+            <ShieldAlert className="h-10 w-10 sm:h-12 sm:w-12 text-destructive shrink-0" />
           )}
           <div>
-            <h1 className={`text-3xl font-bold ${isSim ? "text-success" : "text-destructive"}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isSim ? "text-success" : "text-destructive"}`}>
               {result.verdict}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {isSim
                 ? "Decisão compatível com sua capacidade atual"
                 : "Capacidade insuficiente para esta decisão"}
             </p>
           </div>
-          <div className="ml-auto text-right">
-            <span className="font-mono text-4xl font-bold text-foreground">{result.overallScore}</span>
+          <div className="sm:ml-auto text-center sm:text-right">
+            <span className="font-mono text-3xl sm:text-4xl font-bold text-foreground">{result.overallScore}</span>
             <p className="text-xs text-muted-foreground">/ 100</p>
           </div>
         </CardContent>
       </Card>
 
       {/* 4 layers */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Humana", score: result.layers.human.score, detail: `Pressão: ${result.layers.human.pressureCapacity}%` },
           { label: "Negócio", score: result.layers.business.score, detail: `Margem: ${result.layers.business.margin}%` },
@@ -122,7 +122,7 @@ const DecisionVerdict = () => {
           <CardTitle className="text-sm text-muted-foreground">6 Domínios</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-72">
+          <div className="h-56 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid stroke="hsl(222 20% 16%)" />
@@ -143,7 +143,7 @@ const DecisionVerdict = () => {
           <CardTitle className="text-sm text-muted-foreground">4 Cenários</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="grid gap-2 sm:gap-3 grid-cols-2 lg:grid-cols-4 mb-4 sm:mb-6">
             {result.scenarios.map((s) => (
               <div key={s.id} className="rounded-lg border border-border p-3 space-y-1">
                 <div className="flex items-center gap-2">

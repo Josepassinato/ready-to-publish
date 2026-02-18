@@ -578,7 +578,7 @@ export function govern(
   };
 }
 
-// ── EXPORTS FOR LOVABLE ───────────────────────────────────────────
+// ── EXPORTS ──────────────────────────────────────────────────────
 
 export { STATES, DOMAINS, DECISION_TYPES, VALID_TRANSITIONS, THRESHOLDS, CONSTITUTION_VERSION };
 export { classifyState, checkThresholds, simulateScenarios, generateReadinessPlan };

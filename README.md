@@ -1,73 +1,52 @@
-# Welcome to your Lovable project
+# LifeOS — Sistema de Governo de Decisão
 
-## Project info
+**Protocolo Luz & Vaso · Constituição Artigos I–VII**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+> LifeOS não diz apenas "não". Ele ensina como se tornar capaz do "sim".
 
-## How can I edit this code?
+## O que é
 
-There are several ways of editing your application.
+LifeOS é uma plataforma de governo de decisão que combina um Rules Engine determinístico (Constituição codificada em 7 Artigos) com um LLM controlado para comunicar vereditos. O sistema avalia líderes e decisões em 4 camadas (humana, negócio, financeira, relacional), simula 4 cenários, e emite vereditos binários (**SIM** ou **NÃO AGORA**) com plano de prontidão obrigatório.
 
-**Use Lovable**
+## Arquitetura
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Motor de Governança**: 100% determinístico, client-side, pipeline de 8 passos
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind + shadcn/ui
+- **Backend**: Supabase (Auth, Database, Edge Functions)
+- **LLM**: Claude API (Anthropic) via proxy controlado
+- **Canais**: Web App, Telegram, WhatsApp
+- **Voice**: ElevenLabs STT + TTS
 
-Changes made via Lovable will be committed automatically to this repo.
+## Setup Local
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+git clone <repo-url>
+cd lifeos
+npm install
+cp .env.example .env
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Variáveis de Ambiente
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```env
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sua-anon-key
+```
 
-**Use GitHub Codespaces**
+### Supabase Edge Functions (Secrets)
+```
+ANTHROPIC_API_KEY=sk-ant-...
+ELEVENLABS_API_KEY=...
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deploy (VPS + Nginx)
 
-## What technologies are used for this project?
+```bash
+npm run build
+# Arquivos estáticos em dist/ — sirva via Nginx
+```
 
-This project is built with:
+## Licença
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Proprietário. Todos os direitos reservados.

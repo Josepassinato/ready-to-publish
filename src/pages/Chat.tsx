@@ -278,8 +278,8 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        <div className="mx-auto max-w-3xl space-y-6 pt-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-4 scroll-touch hide-scrollbar">
+        <div className="mx-auto max-w-3xl space-y-6 pt-4 md:pt-6">
           {!llmEnabled && messages.length === 0 && (
             <div className="mx-auto max-w-md rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-center">
               <ShieldOff className="mx-auto mb-2 h-8 w-8 text-destructive" />
@@ -299,18 +299,18 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
             </div>
           )}
           {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 space-y-8">
+            <div className="flex flex-col items-center justify-center py-12 md:py-20 space-y-6 md:space-y-8 px-4">
               <div className="space-y-3 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
-                  <Shield className="w-8 h-8 text-primary" />
+                <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-primary/10 border border-primary/20">
+                  <Shield className="w-7 h-7 md:w-8 md:h-8 text-primary" />
                 </div>
-                <h1 className="text-2xl font-bold text-foreground">LifeOS</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-foreground">LifeOS</h1>
                 <p className="text-sm text-muted-foreground max-w-md">
                   Sistema de Governo de Decisão. Me diga o que você precisa — tomar uma decisão, avaliar seu estado ou receber orientação.
                 </p>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-2 sm:gap-3 w-full max-w-md">
                 {QUICK_ACTIONS.map((action) => (
                   <Button
                     key={action.label}
@@ -334,7 +334,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                className={`max-w-[90%] md:max-w-[85%] rounded-2xl px-3 py-2.5 md:px-4 md:py-3 ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -399,7 +399,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-border bg-background/95 backdrop-blur-sm px-4 py-3">
+      <div className="border-t border-border bg-background/95 backdrop-blur-sm px-4 py-3 md:pb-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>
         <div className="mx-auto max-w-3xl space-y-3">
           {hasEnoughContext && !isExtracting && (
             <div className="flex justify-center">
@@ -459,8 +459,8 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Descreva sua decisão, peça orientação, ou avalie seu estado..."
-                className="min-h-[52px] max-h-40 resize-none bg-muted border-border pr-12"
+                placeholder="Descreva sua decisão ou peça orientação..."
+                className="min-h-[48px] md:min-h-[52px] max-h-40 resize-none bg-muted border-border pr-12 text-sm"
                 rows={1}
                 disabled={isLoading}
               />

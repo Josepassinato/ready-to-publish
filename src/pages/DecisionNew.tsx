@@ -147,23 +147,20 @@ const DecisionNew = () => {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      {/* Stepper */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => (
-          <div key={i} className="flex flex-1 items-center">
-            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              i < step ? "bg-primary text-primary-foreground" :
-              i === step ? "bg-primary/20 text-primary border border-primary" :
-              "bg-muted text-muted-foreground"
-            }`}>
-              {i + 1}
-            </div>
-            {i < STEPS.length - 1 && (
-              <div className={`mx-1 h-px flex-1 ${i < step ? "bg-primary" : "bg-border"}`} />
-            )}
-          </div>
-        ))}
+    <div className="mx-auto max-w-2xl space-y-4 md:space-y-6">
+      {/* Stepper — mobile: progress bar, desktop: numbered */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Passo {step + 1} de {STEPS.length}</span>
+          <span className="font-medium text-foreground">{STEPS[step]}</span>
+        </div>
+        <div className="flex gap-1">
+          {STEPS.map((_, i) => (
+            <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${
+              i <= step ? "bg-primary" : "bg-muted"
+            }`} />
+          ))}
+        </div>
       </div>
 
       <Card className="border-border bg-card">
@@ -365,9 +362,11 @@ const DecisionNew = () => {
 
       {/* Navigation */}
       {step < 5 && (
-        <div className="flex justify-between">
+        <div className="flex justify-between gap-3 pb-4">
           <Button
             variant="ghost"
+            size="lg"
+            className="h-12 px-4"
             onClick={() => { if (step === 2) syncRevenue(); setStep(step - 1); }}
             disabled={step === 0}
           >
@@ -375,13 +374,13 @@ const DecisionNew = () => {
           </Button>
 
           {step < 4 ? (
-            <Button onClick={() => { if (step === 1) syncRevenue(); setStep(step + 1); }}>
+            <Button size="lg" className="h-12 px-6" onClick={() => { if (step === 1) syncRevenue(); setStep(step + 1); }}>
               Próximo <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={runGovernance} disabled={!canProceed()}>
+            <Button size="lg" className="h-12 px-5" onClick={runGovernance} disabled={!canProceed()}>
               <Zap className="mr-2 h-4 w-4" />
-              Executar Motor de Governo
+              Executar Governo
             </Button>
           )}
         </div>
