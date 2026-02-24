@@ -26,36 +26,7 @@ const DecisionVerdict = () => {
   const [mindMapOpen, setMindMapOpen] = useState(false);
   const [parecerOpen, setParecerOpen] = useState(false);
 
-  useEffect(() => {
-    if (!user || !id) return;
-    supabase
-      .from("decisions")
-      .select("*")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setDecision(data);
-          setResult(data.full_result as any);
-        }
-        setLoading(false);
-      });
-  }, [id, user]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!decision || !result) {
-    return <div className="py-20 text-center text-muted-foreground">Decisão não encontrada.</div>;
-  }
-
-  const isSim = result.verdict === "SIM";
+  const isSim = result?.verdict === "SIM" || false;
 
   const verdictText = useMemo(() => {
     if (!result) return "";
@@ -103,6 +74,37 @@ const DecisionVerdict = () => {
 
     return parts.join(" ");
   }, [result, isSim]);
+
+  useEffect(() => {
+    if (!user || !id) return;
+    supabase
+      .from("decisions")
+      .select("*")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setDecision(data);
+          setResult(data.full_result as any);
+        }
+        setLoading(false);
+      });
+  }, [id, user]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!decision || !result) {
+    return <div className="py-20 text-center text-muted-foreground">Decisão não encontrada.</div>;
+  }
+
+
 
   const handleTTS = () => {
     if (tts.status === "playing" || tts.status === "paused") {
