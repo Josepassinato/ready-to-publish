@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, ShieldAlert, PlusCircle, Clock, AlertTriangle, Volume2, Pause, Play, Download, Loader2 } from "lucide-react";
+import { CheckCircle, ShieldAlert, PlusCircle, Clock, AlertTriangle, Volume2, Pause, Play, Download, Loader2, Brain, FileText } from "lucide-react";
+import MindMapModal from "@/components/MindMapModal";
+import ParecerConstitucional from "@/components/ParecerConstitucional";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -21,6 +23,8 @@ const DecisionVerdict = () => {
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(true);
   const tts = useVerdictTTS();
+  const [mindMapOpen, setMindMapOpen] = useState(false);
+  const [parecerOpen, setParecerOpen] = useState(false);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -232,6 +236,42 @@ const DecisionVerdict = () => {
           <p className="text-xs text-destructive text-center">{tts.errorMsg}</p>
         )}
       </div>
+
+      {/* Mind Map + Parecer buttons */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button
+          variant="ghost"
+          className="flex-1 h-11 min-h-[44px] border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-all"
+          onClick={() => setMindMapOpen(true)}
+        >
+          <Brain className="mr-2 h-4 w-4" />
+          Mapa Mental
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex-1 h-11 min-h-[44px] border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-all"
+          onClick={() => setParecerOpen(true)}
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          Parecer Constitucional
+        </Button>
+      </div>
+
+      {/* Modals */}
+      <MindMapModal
+        open={mindMapOpen}
+        onOpenChange={setMindMapOpen}
+        result={result}
+        decisionDescription={decision?.description}
+        userName={user?.user_metadata?.name || user?.user_metadata?.full_name || ""}
+      />
+      <ParecerConstitucional
+        open={parecerOpen}
+        onOpenChange={setParecerOpen}
+        result={result}
+        decisionDescription={decision?.description}
+        userName={user?.user_metadata?.name || user?.user_metadata?.full_name || ""}
+      />
 
       {/* 4 layers */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
