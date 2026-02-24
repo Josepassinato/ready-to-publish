@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { streamChat, extractGovernanceData } from "@/lib/chat-stream";
@@ -16,6 +16,8 @@ import { useVoice } from "@/hooks/useVoice";
 import { useToast } from "@/hooks/use-toast";
 import type { Msg } from "@/lib/chat-stream";
 import ReactMarkdown from "react-markdown";
+import CalibrationFlow from "@/components/CalibrationFlow";
+import type { CalibrationResult } from "@/components/CalibrationFlow";
 
 interface ChatMessage extends Msg {
   id: string;
@@ -23,9 +25,9 @@ interface ChatMessage extends Msg {
 }
 
 const QUICK_ACTIONS = [
-  { label: "Nova Decisão", icon: Zap, prompt: "Preciso tomar uma decisão importante. Me ajude a avaliar." },
-  { label: "Meu Estado", icon: BarChart3, prompt: "Como está minha capacidade de decisão agora? Faça uma avaliação rápida." },
-  { label: "Revisar Histórico", icon: Clock, prompt: "Analise meu histórico de decisões e me diga o que você observa." },
+  { label: "Nova Decisao", icon: Zap, prompt: "Preciso tomar uma decisao importante. Me ajude a avaliar." },
+  { label: "Meu Estado", icon: BarChart3, prompt: "Como esta minha capacidade de decisao agora? Faca uma avaliacao rapida." },
+  { label: "Revisar Historico", icon: Clock, prompt: "Analise meu historico de decisoes e me diga o que voce observa." },
 ];
 
 const Chat = () => {
@@ -38,9 +40,21 @@ const Chat = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [memoryContext, setMemoryContext] = useState<string>("");
   const [llmEnabled, setLlmEnabled] = useState(true);
+  const [calibrationDone, setCalibrationDone] = useState(false);
+  const [calibrationResult, setCalibrationResult] = useState<CalibrationResult | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef(crypto.randomUUID());
   const { isPlaying, isRecording, currentTranscript, speak, stopPlaying, startRecording, stopRecording } = useVoice();
+
+  // Derive user's first name from metadata, profile, or fallback
+  const userName = useMemo(() => {
+    if (!user) return "Lider";
+    const meta = user.user_metadata;
+    const raw = meta?.name || meta?.full_name || meta?.display_name || "";
+    // Extract first name only
+    const firstName = raw.trim().split(/\s+/)[0];
+    return firstName || "Lider";
+  }, [user]);
 
   // Load memory context and feature flags on mount
   useEffect(() => {
@@ -67,9 +81,40 @@ const Chat = () => {
       title: newValue ? "IA Ativada" : "Kill-Switch Ativado",
       description: newValue
         ? "A IA voltou a operar normalmente."
-        : "Modo rules-only ativo. Vereditos serão puramente estruturados.",
+        : "Modo rules-only ativo. Vereditos serao puramente estruturados.",
     });
   };
+
+  const handleCalibrationComplete = useCallback(async (result: CalibrationResult) => {
+    setCalibrationResult(result);
+    setCalibrationDone(true);
+
+    // Save state classification to Supabase
+    if (user) {
+      try {
+        await saveStateClassification(
+          user.id,
+          result.assessment,
+          result.overallScore,
+          // Map state label to ID
+          result.stateLabel.toLowerCase().replace(/\s+/g, "_") as any,
+          result.stateLabel,
+          result.stateSeverity,
+          result.confidence
+        );
+      } catch (e) {
+        console.error("[Calibration] Failed to save state:", e);
+      }
+    }
+
+    // Add a welcome message with the calibration result
+    const stateMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: `**Calibracao concluida, ${userName}.**\n\nSeu estado: **${result.stateLabel}** (score ${result.overallScore}%, severidade ${result.stateSeverity})\n\n${userName}, o que voce precisa agora? Posso ajudar a tomar uma decisao, avaliar opcoes ou dar orientacao.`,
+    };
+    setMessages([stateMsg]);
+  }, [user]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -84,7 +129,7 @@ const Chat = () => {
       const systemMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `🛡️ **Kill-Switch Ativo** — A IA está desativada. O sistema opera em modo rules-only.\n\nVocê pode:\n- **Processar decisões** pelo botão abaixo (motor determinístico)\n- **Reativar a IA** pelo toggle no canto superior\n\nNenhuma IA é consultada neste modo. Apenas as regras da Constituição Art. I–VII são executadas.`,
+        content: `**Kill-Switch Ativo** -- A IA esta desativada. O sistema opera em modo rules-only.\n\nVoce pode:\n- **Processar decisoes** pelo botao abaixo (motor deterministico)\n- **Reativar a IA** pelo toggle no canto superior\n\nNenhuma IA e consultada neste modo. Apenas as regras da Constituicao Art. I-VII sao executadas.`,
       };
       setMessages((prev) => [...prev, userMsg, systemMsg]);
       setInput("");
@@ -108,6 +153,12 @@ const Chat = () => {
       ...messages.map((m) => ({ role: m.role, content: m.content })),
       { role: userMsg.role, content: userMsg.content },
     ];
+
+    // Inject calibration context if available
+    if (calibrationResult) {
+      const ctx = `[Contexto de calibracao: Estado=${calibrationResult.stateLabel}, Score=${calibrationResult.overallScore}%, Severidade=${calibrationResult.stateSeverity}, Energia=${calibrationResult.assessment.energy}, Clareza=${calibrationResult.assessment.clarity}, Estresse=${calibrationResult.assessment.stress}, Confianca=${calibrationResult.assessment.confidence}, Carga=${calibrationResult.assessment.load}]`;
+      allMessages.unshift({ role: "system", content: ctx });
+    }
 
     const upsertAssistant = (chunk: string) => {
       assistantSoFar += chunk;
@@ -144,7 +195,7 @@ const Chat = () => {
       console.error(e);
       toast({
         title: "Erro",
-        description: e.message || "Falha na comunicação",
+        description: e.message || "Falha na comunicacao",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -167,14 +218,18 @@ const Chat = () => {
         extracted = await extractGovernanceData(allMsgs);
       } else {
         // Kill-switch mode: prompt user that extraction requires manual data
-        // For now, try to extract from the last messages without AI
         toast({
           title: "Modo Rules-Only",
-          description: "A IA está desativada. Utilize o fluxo completo de decisão para inserir dados manualmente.",
+          description: "A IA esta desativada. Utilize o fluxo completo de decisao para inserir dados manualmente.",
         });
         setIsExtracting(false);
         navigate("/decision/new");
         return;
+      }
+
+      // If we have calibration data, use it for the assessment
+      if (calibrationResult) {
+        extracted.assessment = calibrationResult.assessment;
       }
 
       const result = govern(
@@ -212,24 +267,24 @@ const Chat = () => {
 
       const saved = await saveDecision(result, user.id);
 
-      const verdictEmoji = result.verdict === "SIM" ? "🟢" : "🔴";
+      const verdictEmoji = result.verdict === "SIM" ? "SIM" : "NAO AGORA";
       const resultMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `## ${verdictEmoji} Veredito: **${result.verdict}**
+        content: `## Veredito: **${verdictEmoji}**
 
-**Score Geral:** ${result.overallScore}%  
+**Score Geral:** ${result.overallScore}%
 **Estado:** ${result.state.label} (severidade ${result.state.severity})
 
-| Domínio | Score |
+| Dominio | Score |
 |---------|-------|
 ${result.domainDetails.map((d: any) => `| ${d.label} | ${d.score}% |`).join("\n")}
 
-${result.blocked ? "⚠️ **Decisão BLOQUEADA** — sua capacidade atual não comporta esta decisão." : "✅ Decisão liberada pelo protocolo."}
+${result.blocked ? "**Decisao BLOQUEADA** -- sua capacidade atual nao comporta esta decisao." : "Decisao liberada pelo protocolo."}
 
-${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.actions.map((a: any) => `- ${a.action}`).join("\n")}` : ""}
+${result.readinessPlan ? `### Plano de Prontidao\n${result.readinessPlan.actions.map((a: any) => `- ${a.action}`).join("\n")}` : ""}
 
-[Ver análise completa →](/decision/${saved.id})`,
+[Ver analise completa ->](/decision/${saved.id})`,
         governanceResult: result,
       };
 
@@ -238,7 +293,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
       console.error(e);
       toast({
         title: "Erro ao processar",
-        description: e.message || "Não foi possível extrair os dados da conversa",
+        description: e.message || "Nao foi possivel extrair os dados da conversa",
         variant: "destructive",
       });
     } finally {
@@ -254,6 +309,9 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
   };
 
   const hasEnoughContext = messages.filter((m) => m.role === "user").length >= 3;
+
+  // Show calibration flow if not yet completed and no messages
+  const showCalibration = !calibrationDone && messages.length === 0;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col md:h-[calc(100vh-3.5rem)]">
@@ -280,12 +338,19 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 scroll-touch hide-scrollbar">
         <div className="mx-auto max-w-3xl space-y-6 pt-4 md:pt-6">
+
+          {/* Calibration Flow */}
+          {showCalibration && !(!llmEnabled && messages.length === 0) && (
+            <CalibrationFlow onComplete={handleCalibrationComplete} userName={userName} />
+          )}
+
+          {/* Rules-only empty state */}
           {!llmEnabled && messages.length === 0 && (
             <div className="mx-auto max-w-md rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-center">
               <ShieldOff className="mx-auto mb-2 h-8 w-8 text-destructive" />
               <h3 className="font-semibold text-foreground">Modo Rules-Only</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                A IA está desativada. O motor de governança opera exclusivamente pelas regras da Constituição Art. I–VII. Use o fluxo de decisão para processar vereditos determinísticos.
+                A IA esta desativada. O motor de governanca opera exclusivamente pelas regras da Constituicao Art. I-VII. Use o fluxo de decisao para processar vereditos deterministicos.
               </p>
               <Button
                 variant="outline"
@@ -294,22 +359,14 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                 onClick={() => navigate("/decision/new")}
               >
                 <Zap className="mr-2 h-4 w-4" />
-                Iniciar Decisão Manual
+                Iniciar Decisao Manual
               </Button>
             </div>
           )}
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 md:py-20 space-y-6 md:space-y-8 px-4">
-              <div className="space-y-3 text-center">
-                <div className="inline-flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-primary/10 border border-primary/20">
-                  <Shield className="w-7 h-7 md:w-8 md:h-8 text-primary" />
-                </div>
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">LifeOS</h1>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  Sistema de Governo de Decisão. Me diga o que você precisa — tomar uma decisão, avaliar seu estado ou receber orientação.
-                </p>
-              </div>
 
+          {/* Quick Actions - show after calibration when chat is empty */}
+          {calibrationDone && messages.length <= 1 && (
+            <div className="calibration-fade-in flex flex-col items-center py-4 space-y-4 px-4">
               <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-2 sm:gap-3 w-full max-w-md">
                 {QUICK_ACTIONS.map((action) => (
                   <Button
@@ -318,7 +375,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                     className="h-auto flex-col items-start gap-1 px-4 py-3 text-left border-border hover:bg-muted"
                     onClick={() => sendMessage(action.prompt)}
                   >
-                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <span className="flex items-center gap-2 text-base font-medium text-foreground">
                       <action.icon className="h-4 w-4 text-primary" />
                       {action.label}
                     </span>
@@ -328,13 +385,14 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
             </div>
           )}
 
+          {/* Chat Messages */}
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[90%] md:max-w-[85%] rounded-2xl px-3 py-2.5 md:px-4 md:py-3 ${
+                className={`max-w-[90%] md:max-w-[85%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
@@ -342,7 +400,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
               >
                 {msg.role === "assistant" ? (
                   <div>
-                    <div className="prose prose-sm prose-invert max-w-none [&_table]:text-sm [&_th]:text-left [&_th]:pr-4 [&_td]:pr-4 [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline">
+                    <div className="prose prose-invert max-w-none chat-prose [&_table]:text-sm [&_th]:text-left [&_th]:pr-4 [&_td]:pr-4 [&_a]:text-primary [&_a]:no-underline hover:[&_a]:underline">
                       <ReactMarkdown
                         components={{
                           a: ({ href, children }) => (
@@ -368,7 +426,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground inline-btn"
                         onClick={() => isPlaying ? stopPlaying() : speak(msg.content)}
                         title={isPlaying ? "Parar" : "Ouvir"}
                       >
@@ -377,7 +435,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-base whitespace-pre-wrap">{msg.content}</p>
                 )}
               </div>
             </div>
@@ -388,7 +446,7 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
               <div className="rounded-2xl bg-muted px-4 py-3">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Pensando...</span>
+                  <span className="text-base">Pensando...</span>
                 </div>
               </div>
             </div>
@@ -398,88 +456,90 @@ ${result.readinessPlan ? `### Plano de Prontidão\n${result.readinessPlan.action
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-border bg-background/95 backdrop-blur-sm px-4 py-3 md:pb-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>
-        <div className="mx-auto max-w-3xl space-y-3">
-          {hasEnoughContext && !isExtracting && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-primary/30 text-primary hover:bg-primary/10"
-                onClick={handleRunGovernance}
-              >
-                <Zap className="mr-2 h-4 w-4" />
-                Processar Decisão pelo Protocolo
-              </Button>
-            </div>
-          )}
+      {/* Input Area - hidden during calibration */}
+      {(!showCalibration || (!llmEnabled && messages.length === 0)) && (
+        <div className="border-t border-border bg-background/95 backdrop-blur-sm px-4 py-3 md:pb-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>
+          <div className="mx-auto max-w-3xl space-y-3">
+            {hasEnoughContext && !isExtracting && (
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={handleRunGovernance}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  Processar Decisao pelo Protocolo
+                </Button>
+              </div>
+            )}
 
-          {isExtracting && (
-            <div className="flex justify-center">
-              <Badge variant="outline" className="gap-2 border-primary/30 text-primary">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Extraindo dados e executando motor de governança...
-              </Badge>
-            </div>
-          )}
+            {isExtracting && (
+              <div className="flex justify-center">
+                <Badge variant="outline" className="gap-2 border-primary/30 text-primary">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Extraindo dados e executando motor de governanca...
+                </Badge>
+              </div>
+            )}
 
-          {/* Live transcript preview */}
-          {isRecording && currentTranscript && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground animate-pulse">
-              🎙️ {currentTranscript}
-            </div>
-          )}
+            {/* Live transcript preview */}
+            {isRecording && currentTranscript && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-base text-foreground animate-pulse">
+                {currentTranscript}
+              </div>
+            )}
 
-          <div className="relative flex items-end gap-2">
-            <Button
-              size="icon"
-              variant={isRecording ? "destructive" : "outline"}
-              className={`h-10 w-10 shrink-0 ${isRecording ? "animate-pulse" : ""}`}
-              onClick={() => {
-                if (isRecording) {
-                  const text = stopRecording();
-                  if (text) sendMessage(text);
-                } else {
-                  startRecording();
-                }
-              }}
-              disabled={isLoading}
-              title={isRecording ? "Parar e enviar" : "Falar em tempo real"}
-            >
-              {isRecording ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
-            <div className="relative flex-1">
-              <Textarea
-                ref={undefined}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Descreva sua decisão ou peça orientação..."
-                className="min-h-[48px] md:min-h-[52px] max-h-40 resize-none bg-muted border-border pr-12 text-sm"
-                rows={1}
-                disabled={isLoading}
-              />
+            <div className="relative flex items-end gap-2">
               <Button
                 size="icon"
-                className="absolute bottom-2 right-2 h-8 w-8"
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || isLoading}
+                variant={isRecording ? "destructive" : "outline"}
+                className={`h-10 w-10 shrink-0 ${isRecording ? "animate-pulse" : ""}`}
+                onClick={() => {
+                  if (isRecording) {
+                    const text = stopRecording();
+                    if (text) sendMessage(text);
+                  } else {
+                    startRecording();
+                  }
+                }}
+                disabled={isLoading}
+                title={isRecording ? "Parar e enviar" : "Falar em tempo real"}
               >
-                <Send className="h-4 w-4" />
+                {isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </Button>
+              <div className="relative flex-1">
+                <Textarea
+                  ref={undefined}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Descreva sua decisao ou peca orientacao..."
+                  className="min-h-[52px] md:min-h-[56px] max-h-40 resize-none bg-muted border-border pr-12 text-base"
+                  rows={1}
+                  disabled={isLoading}
+                />
+                <Button
+                  size="icon"
+                  className="absolute bottom-2 right-2 h-8 w-8"
+                  onClick={() => sendMessage(input)}
+                  disabled={!input.trim() || isLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
 
-          <p className="text-center text-xs text-muted-foreground">
-            Protocolo Luz & Vaso · Constituição Artigos I–VII
-          </p>
+            <p className="text-center text-xs text-muted-foreground">
+              Protocolo Luz & Vaso -- Constituicao Artigos I-VII
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

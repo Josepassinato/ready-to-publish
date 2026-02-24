@@ -7,6 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Shield, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const Auth = () => {
   const { user, loading, signIn, signUp } = useAuth();
@@ -15,6 +24,8 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
   const { toast } = useToast();
 
   if (loading) {
@@ -48,6 +59,25 @@ const Auth = () => {
     }
   };
 
+  const handlePasswordRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      console.log('Sending recovery email for:', recoveryEmail); // Debugging line
+      const { error } = await resetPasswordForEmail(recoveryEmail);
+      if (error) {
+        toast({ title: "Erro na recuperação", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Email enviado", description: "Verifique seu email para redefinir sua senha." });
+        setIsRecoveryModalOpen(false);
+        setRecoveryEmail("");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+// Duplicated handlePasswordRecovery function removed
   const isTestMode = import.meta.env.VITE_TEST_MODE === "true";
 
   const handleTestBypass = async () => {
@@ -141,6 +171,44 @@ const Auth = () => {
                   minLength={6}
                   className="bg-muted border-border"
                 />
+                <Dialog open={isRecoveryModalOpen} onOpenChange={setIsRecoveryModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="link" className="h-auto px-0 py-0 text-xs self-end text-muted-foreground hover:text-foreground">
+                      Esqueceu a senha?
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Recuperar Senha</DialogTitle>
+                      <DialogDescription>
+                        Digite seu email para receber um link de recuperação de senha.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handlePasswordRecovery} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="recovery-email" className="text-foreground">Email</Label>
+                        <Input
+                          id="recovery-email"
+                          type="email"
+                          value={recoveryEmail}
+                          onChange={(e) => setRecoveryEmail(e.target.value)}
+                          placeholder="seu@email.com"
+                          required
+                          className="bg-muted border-border"
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button type="submit" disabled={submitting}>
+                          {submitting ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                          ) : (
+                            "Enviar Link"
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </div>
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting ? (

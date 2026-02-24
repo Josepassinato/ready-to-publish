@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { GovernanceResult } from "@/lib/governance-engine";
+import { useVerdictTTS } from "@/hooks/useVerdictTTS";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, ShieldAlert, PlusCircle, Clock, AlertTriangle } from "lucide-react";
+import { CheckCircle, ShieldAlert, PlusCircle, Clock, AlertTriangle, Volume2, Pause, Play, Download, Loader2 } from "lucide-react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -19,6 +20,7 @@ const DecisionVerdict = () => {
   const [decision, setDecision] = useState<any>(null);
   const [result, setResult] = useState<GovernanceResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const tts = useVerdictTTS();
 
   useEffect(() => {
     if (!user || !id) return;
@@ -50,6 +52,68 @@ const DecisionVerdict = () => {
   }
 
   const isSim = result.verdict === "SIM";
+
+  const verdictText = useMemo(() => {
+    if (!result) return "";
+    const parts: string[] = [];
+
+    parts.push(`Veredito: ${result.verdict}.`);
+    parts.push(`Score geral: ${result.overallScore} de 100.`);
+    parts.push(`Estado de capacidade: ${result.state.label}.`);
+
+    if (isSim) {
+      parts.push("Decisao compativel com sua capacidade atual.");
+    } else {
+      parts.push("Capacidade insuficiente para esta decisao no momento.");
+    }
+
+    parts.push(
+      `Camada Humana: ${result.layers.human.score} pontos, pressao ${result.layers.human.pressureCapacity} por cento.`
+    );
+    parts.push(
+      `Camada Negocio: ${result.layers.business.score} pontos, margem ${result.layers.business.margin} por cento.`
+    );
+    parts.push(
+      `Camada Financeira: ${result.layers.financial.score} pontos, runway de ${result.layers.financial.runway} meses.`
+    );
+    parts.push(
+      `Camada Relacional: ${result.layers.relational.score} pontos, risco de conflito ${result.layers.relational.conflictRisk} por cento.`
+    );
+
+    if (result.violations.length > 0) {
+      parts.push(`Existem ${result.violations.length} violacoes:`);
+      result.violations.forEach((v) => {
+        parts.push(`${v.label}: score ${v.score} por cento, minimo requerido ${v.required} por cento, nivel ${v.level}.`);
+      });
+    }
+
+    if (result.readinessPlan) {
+      const rp = result.readinessPlan;
+      parts.push(`Plano de prontidao: ${rp.structuralReason}`);
+      parts.push(`Gargalo principal: ${rp.primaryBottleneck.label}, score ${rp.primaryBottleneck.score} por cento.`);
+      rp.actions.forEach((a) => {
+        parts.push(`Acao: ${a.action}. Horizonte: ${a.horizon}.`);
+      });
+      parts.push(`Timeline estimada: ${rp.timeline}.`);
+    }
+
+    return parts.join(" ");
+  }, [result, isSim]);
+
+  const handleTTS = () => {
+    if (tts.status === "playing" || tts.status === "paused") {
+      tts.togglePlayPause();
+    } else {
+      tts.generate(verdictText);
+    }
+  };
+
+  const formatTime = (s: number) => {
+    if (!s || !isFinite(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
 
   // Radar data
   const radarData = result.domainDetails.map((d) => ({
@@ -93,6 +157,81 @@ const DecisionVerdict = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* TTS - Ouvir Veredito */}
+      <div className="space-y-2">
+        <Button
+          variant="ghost"
+          className="w-full h-11 border border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-all"
+          onClick={handleTTS}
+          disabled={tts.status === "loading"}
+        >
+          {tts.status === "loading" ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : tts.status === "playing" ? (
+            <Pause className="mr-2 h-4 w-4" />
+          ) : tts.status === "paused" ? (
+            <Play className="mr-2 h-4 w-4" />
+          ) : (
+            <Volume2 className="mr-2 h-4 w-4" />
+          )}
+          {tts.status === "loading"
+            ? "Gerando audio..."
+            : tts.status === "playing"
+              ? "Pausar"
+              : tts.status === "paused"
+                ? "Continuar"
+                : "Ouvir Veredito"}
+        </Button>
+
+        {(tts.status === "playing" || tts.status === "paused" || (tts.status === "idle" && tts.progress === 100)) && (
+          <Card className="border-border bg-card/80">
+            <CardContent className="flex items-center gap-3 py-3 px-4">
+              <button
+                onClick={tts.togglePlayPause}
+                className="shrink-0 h-9 w-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+              >
+                {tts.status === "playing" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+
+              <div className="flex-1 min-w-0 space-y-1">
+                <div
+                  className="relative h-1.5 bg-border rounded-full cursor-pointer"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const pct = ((e.clientX - rect.left) / rect.width) * 100;
+                    tts.seek(Math.max(0, Math.min(100, pct)));
+                  }}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width] duration-100"
+                    style={{ width: `${tts.progress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                  <span>{formatTime((tts.progress / 100) * tts.duration)}</span>
+                  <span>{formatTime(tts.duration)}</span>
+                </div>
+              </div>
+
+              {tts.blobUrl && (
+                <a
+                  href={tts.blobUrl}
+                  download={`veredito-${id}.mp3`}
+                  className="shrink-0 h-9 w-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                  title="Baixar MP3"
+                >
+                  <Download className="h-4 w-4" />
+                </a>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {tts.status === "error" && (
+          <p className="text-xs text-destructive text-center">{tts.errorMsg}</p>
+        )}
+      </div>
 
       {/* 4 layers */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">

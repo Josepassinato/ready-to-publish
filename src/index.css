@@ -209,3 +209,59 @@ html {
     padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* ── CALIBRATION FLOW ANIMATIONS ──────────────────────── */
+
+@keyframes calibration-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calibration-fade-in {
+  animation: calibration-fade-in 0.4s ease-out;
+}
+
+/* ── CHAT TYPOGRAPHY (mobile-first) ──────────────────── */
+
+/* Assistant messages: minimum 16px */
+.chat-prose {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.chat-prose p {
+  margin-bottom: 0.5em;
+}
+
+.chat-prose h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5em;
+}
+
+.chat-prose h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.4em;
+}
+
+.chat-prose ul, .chat-prose ol {
+  padding-left: 1.25em;
+}
+
+.chat-prose li {
+  margin-bottom: 0.25em;
+}
+
+@media (min-width: 768px) {
+  .chat-prose {
+    font-size: 16px;
+    line-height: 1.65;
+  }
+}
