@@ -1,33 +1,37 @@
+import { getToken } from "@/hooks/useAuth";
+
 export type Msg = { role: "user" | "assistant" | "system"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const CHAT_URL = "/api/chat";
 
 export async function streamChat({
   messages,
   onDelta,
   onDone,
-  memoryContext,
 }: {
   messages: Msg[];
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   memoryContext?: string;
 }) {
+  const token = getToken();
+  if (!token) throw new Error("Sessao expirada. Faca login novamente.");
+
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: "Bearer " + token,
     },
-    body: JSON.stringify({ messages, memoryContext }),
+    body: JSON.stringify({ messages }),
   });
 
   if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ error: "Erro de conexão" }));
-    throw new Error(err.error || `Erro ${resp.status}`);
+    const err = await resp.json().catch(() => ({ error: "Erro de conexao" }));
+    throw new Error(err.error || "Erro " + resp.status);
   }
 
-  if (!resp.body) throw new Error("Stream não disponível");
+  if (!resp.body) throw new Error("Stream nao disponivel");
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
@@ -65,14 +69,14 @@ export async function streamChat({
     }
   }
 
-  // Final flush
   if (textBuffer.trim()) {
-    for (let raw of textBuffer.split("\n")) {
+    for (const raw of textBuffer.split("\n")) {
       if (!raw) continue;
-      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-      if (raw.startsWith(":") || raw.trim() === "") continue;
-      if (!raw.startsWith("data: ")) continue;
-      const jsonStr = raw.slice(6).trim();
+      let line = raw;
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (line.startsWith(":") || line.trim() === "") continue;
+      if (!line.startsWith("data: ")) continue;
+      const jsonStr = line.slice(6).trim();
       if (jsonStr === "[DONE]") continue;
       try {
         const parsed = JSON.parse(jsonStr);
@@ -86,18 +90,21 @@ export async function streamChat({
 }
 
 export async function extractGovernanceData(messages: Msg[]) {
+  const token = getToken();
+  if (!token) throw new Error("Sessao expirada.");
+
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: "Bearer " + token,
     },
     body: JSON.stringify({ messages, extractData: true }),
   });
 
   if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ error: "Erro de conexão" }));
-    throw new Error(err.error || `Erro ${resp.status}`);
+    const err = await resp.json().catch(() => ({ error: "Erro de conexao" }));
+    throw new Error(err.error || "Erro " + resp.status);
   }
 
   const data = await resp.json();
