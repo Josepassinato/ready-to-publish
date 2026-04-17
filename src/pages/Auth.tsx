@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 
 const Auth = () => {
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, resetPasswordForEmail } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,6 +27,13 @@ const Auth = () => {
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
   const { toast } = useToast();
+
+  const makeTraceId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const maskEmail = (value: string) => {
+    const [local, domain] = value.split("@");
+    if (!local || !domain) return "***";
+    return `${local.slice(0, 2)}***@${domain}`;
+  };
 
   if (loading) {
     return (
@@ -41,20 +48,35 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    const traceId = makeTraceId(isLogin ? "ui-login" : "ui-signup");
+    console.info(`[AUTH_UI][${traceId}] submit:start`, {
+      mode: isLogin ? "login" : "signup",
+      email: maskEmail(email),
+      nameLength: name.length,
+      passwordLength: password.length,
+    });
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
-      } else {
-        const { error } = await signUp(email, password, name);
+        const { error } = await signIn(email, password, traceId);
         if (error) {
+          console.warn(`[AUTH_UI][${traceId}] submit:login-failed`, { error: error.message });
+          toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+        } else {
+          console.info(`[AUTH_UI][${traceId}] submit:login-success`);
+        }
+      } else {
+        const { error } = await signUp(email, password, name, traceId);
+        if (error) {
+          console.warn(`[AUTH_UI][${traceId}] submit:signup-failed`, { error: error.message });
           toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
         } else {
+          console.info(`[AUTH_UI][${traceId}] submit:signup-success`);
           toast({ title: "Conta criada", description: "Verifique seu email para confirmar o cadastro." });
         }
       }
     } finally {
+      console.info(`[AUTH_UI][${traceId}] submit:end`);
       setSubmitting(false);
     }
   };
@@ -62,17 +84,21 @@ const Auth = () => {
   const handlePasswordRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    const traceId = makeTraceId("ui-recovery");
+    console.info(`[AUTH_UI][${traceId}] recovery:start`, { email: maskEmail(recoveryEmail) });
     try {
-      console.log('Sending recovery email for:', recoveryEmail); // Debugging line
       const { error } = await resetPasswordForEmail(recoveryEmail);
       if (error) {
+        console.warn(`[AUTH_UI][${traceId}] recovery:failed`, { error: error.message });
         toast({ title: "Erro na recuperação", description: error.message, variant: "destructive" });
       } else {
+        console.info(`[AUTH_UI][${traceId}] recovery:success`);
         toast({ title: "Email enviado", description: "Verifique seu email para redefinir sua senha." });
         setIsRecoveryModalOpen(false);
         setRecoveryEmail("");
       }
     } finally {
+      console.info(`[AUTH_UI][${traceId}] recovery:end`);
       setSubmitting(false);
     }
   };

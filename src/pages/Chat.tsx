@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { streamChat, extractGovernanceData } from "@/lib/chat-stream";
 import { govern } from "@/lib/governance-engine";
@@ -54,7 +55,7 @@ const Chat = () => {
     // Extract first name only
     const firstName = raw.trim().split(/\s+/)[0];
     return firstName || "Lider";
-  }, [user]);
+  }, [user, userName]);
 
   // Load memory context and feature flags on mount
   useEffect(() => {
@@ -85,46 +86,44 @@ const Chat = () => {
     });
   };
 
-  const handleCalibrationComplete = useCallback(async (result: CalibrationResult) => {
+  const handleCalibrationComplete = useCallback((result: CalibrationResult) => {
     setCalibrationResult(result);
     setCalibrationDone(true);
 
-    // Save state classification to Supabase
-    if (user) {
-      try {
-        await saveStateClassification(
-          user.id,
-          result.assessment,
-          result.overallScore,
-          // Map state label to ID
-          result.stateLabel.toLowerCase().replace(/\s+/g, "_") as any,
-          result.stateLabel,
-          result.stateSeverity,
-          result.confidence
-        );
-      } catch (e) {
-        console.error("[Calibration] Failed to save state:", e);
-      }
-    }
-
-    // Add a welcome message with the calibration result
+    // Set welcome message immediately to avoid race conditions with first user input.
     const stateMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
       content: `**Calibracao concluida, ${userName}.**\n\nSeu estado: **${result.stateLabel}** (score ${result.overallScore}%, severidade ${result.stateSeverity})\n\n${userName}, o que voce precisa agora? Posso ajudar a tomar uma decisao, avaliar opcoes ou dar orientacao.`,
     };
     setMessages([stateMsg]);
+
+    // Persist state in background (non-blocking for UX).
+    if (user) {
+      saveStateClassification(
+        user.id,
+        result.assessment,
+        result.overallScore,
+        result.stateLabel.toLowerCase().replace(/\s+/g, "_") as any,
+        result.stateLabel,
+        result.stateSeverity,
+        result.confidence
+      ).catch((e) => {
+        console.error("[Calibration] Failed to save state:", e);
+      });
+    }
   }, [user]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
+    const trimmedText = text.trim();
+    if (!trimmedText || isLoading) return;
 
     // Kill-switch: block AI chat when LLM is disabled
     if (!llmEnabled) {
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content: text.trim(),
+        content: trimmedText,
       };
       const systemMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -139,10 +138,13 @@ const Chat = () => {
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: text.trim(),
+      content: trimmedText,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    // Commit local user message immediately before stream starts.
+    flushSync(() => {
+      setMessages((prev) => [...prev, userMsg]);
+    });
     setInput("");
     setIsLoading(true);
 
@@ -185,7 +187,7 @@ const Chat = () => {
           setIsLoading(false);
           if (user && assistantSoFar) {
             saveChatMessages(user.id, sessionIdRef.current, [
-              { role: "user", content: text.trim() },
+              { role: "user", content: trimmedText },
               { role: "assistant", content: assistantSoFar },
             ]);
           }
@@ -389,6 +391,7 @@ ${result.readinessPlan ? `### Plano de Prontidao\n${result.readinessPlan.actions
           {messages.map((msg) => (
             <div
               key={msg.id}
+              data-testid={`chat-message-${msg.role}`}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div

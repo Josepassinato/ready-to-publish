@@ -7,6 +7,7 @@ import json
 import uuid
 import time
 import hashlib
+import logging
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
@@ -26,18 +27,75 @@ XAI_API_KEY = os.getenv("XAI_API_KEY", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "lifeos-secret-2026-change-me")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 72
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger("lifeos.api")
 
 pool: asyncpg.Pool | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pool
+    logger.info("startup.begin db_pool_init")
     pool = await asyncpg.create_pool(DB_URL, min_size=2, max_size=10)
+    logger.info("startup.ready db_pool_ok")
     yield
+    logger.info("shutdown.begin")
     await pool.close()
+    logger.info("shutdown.done")
 
 app = FastAPI(title="LifeOS API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+def make_trace_id() -> str:
+    return f"req-{uuid.uuid4().hex[:12]}"
+
+def get_trace_id(request: Request) -> str:
+    trace_id = getattr(request.state, "trace_id", None) or request.headers.get("X-Debug-Trace")
+    return trace_id or make_trace_id()
+
+def mask_email(email: str) -> str:
+    if "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    return f"{local[:2]}***@{domain}"
+
+def table_owner_column(table: str) -> str:
+    # "profiles" belongs to user via primary key "id", not "user_id"
+    return "id" if table == "profiles" else "user_id"
+
+@app.middleware("http")
+async def request_trace_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Debug-Trace") or make_trace_id()
+    request.state.trace_id = trace_id
+    started = time.perf_counter()
+    method = request.method
+    path = request.url.path
+    client = request.client.host if request.client else "-"
+
+    logger.info("[TRACE %s] request.start method=%s path=%s client=%s", trace_id, method, path, client)
+    try:
+        response = await call_next(request)
+    except Exception:
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        logger.exception("[TRACE %s] request.error method=%s path=%s duration_ms=%s", trace_id, method, path, elapsed_ms)
+        raise
+
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    response.headers["X-Debug-Trace"] = trace_id
+    logger.info(
+        "[TRACE %s] request.end method=%s path=%s status=%s duration_ms=%s",
+        trace_id,
+        method,
+        path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 # ─── Auth Helpers ────────────────────────────────────────────
 
@@ -48,13 +106,17 @@ def create_token(user_id: str) -> str:
     return jwt.encode({"sub": user_id, "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 async def get_current_user(request: Request) -> str:
+    trace_id = get_trace_id(request)
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
+        logger.warning("[TRACE %s] auth.missing_bearer path=%s", trace_id, request.url.path)
         raise HTTPException(401, "Not authenticated")
     try:
         payload = jwt.decode(auth[7:], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        logger.info("[TRACE %s] auth.token_ok user_id=%s", trace_id, payload.get("sub"))
         return payload["sub"]
-    except Exception:
+    except Exception as exc:
+        logger.warning("[TRACE %s] auth.token_invalid path=%s error=%s", trace_id, request.url.path, exc.__class__.__name__)
         raise HTTPException(401, "Invalid token")
 
 # ─── Auth Endpoints ──────────────────────────────────────────
@@ -69,42 +131,70 @@ class LoginReq(BaseModel):
     password: str
 
 @app.post("/api/auth/register")
-async def register(data: RegisterReq):
+async def register(data: RegisterReq, request: Request):
+    trace_id = get_trace_id(request)
+    logger.info(
+        "[TRACE %s] register.start email=%s name_len=%s password_len=%s",
+        trace_id,
+        mask_email(data.email),
+        len(data.name or ""),
+        len(data.password or ""),
+    )
     hashed = hash_pw(data.password)
     user_id = str(uuid.uuid4())
     try:
         async with pool.acquire() as conn:
+            logger.info("[TRACE %s] register.step users.insert.start user_id=%s", trace_id, user_id)
             await conn.execute(
                 "INSERT INTO users (id, email, hashed_password) VALUES ($1, $2, $3)",
                 uuid.UUID(user_id), data.email, hashed
             )
+            logger.info("[TRACE %s] register.step users.insert.ok user_id=%s", trace_id, user_id)
+            logger.info("[TRACE %s] register.step profiles.insert.start user_id=%s", trace_id, user_id)
             await conn.execute(
                 "INSERT INTO profiles (id, name) VALUES ($1, $2)",
                 uuid.UUID(user_id), data.name
             )
+            logger.info("[TRACE %s] register.step profiles.insert.ok user_id=%s", trace_id, user_id)
+        logger.info("[TRACE %s] register.success user_id=%s", trace_id, user_id)
         return {"access_token": create_token(user_id), "token_type": "bearer"}
     except asyncpg.UniqueViolationError:
+        logger.warning("[TRACE %s] register.duplicate_email email=%s", trace_id, mask_email(data.email))
         raise HTTPException(409, "Email already registered")
+    except Exception:
+        logger.exception("[TRACE %s] register.error email=%s", trace_id, mask_email(data.email))
+        raise HTTPException(500, "Register failed. Check trace log.")
 
 @app.post("/api/auth/login")
-async def login(data: LoginReq):
+async def login(data: LoginReq, request: Request):
+    trace_id = get_trace_id(request)
+    logger.info("[TRACE %s] login.start email=%s", trace_id, mask_email(data.email))
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT id, hashed_password FROM users WHERE email = $1", data.email
         )
-    if not row or row["hashed_password"] != hash_pw(data.password):
+    if not row:
+        logger.warning("[TRACE %s] login.user_not_found email=%s", trace_id, mask_email(data.email))
         raise HTTPException(401, "Invalid credentials")
+    if row["hashed_password"] != hash_pw(data.password):
+        logger.warning("[TRACE %s] login.invalid_password user_id=%s", trace_id, row["id"])
+        raise HTTPException(401, "Invalid credentials")
+    logger.info("[TRACE %s] login.success user_id=%s", trace_id, row["id"])
     return {"access_token": create_token(str(row["id"])), "token_type": "bearer"}
 
 @app.get("/api/auth/me")
-async def me(user_id: str = Depends(get_current_user)):
+async def me(request: Request, user_id: str = Depends(get_current_user)):
+    trace_id = get_trace_id(request)
+    logger.info("[TRACE %s] me.start user_id=%s", trace_id, user_id)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT u.id, u.email, p.name, p.company, p.role, p.sector, p.size, p.onboarding_completed FROM users u JOIN profiles p ON p.id = u.id WHERE u.id = $1",
             uuid.UUID(user_id)
         )
     if not row:
+        logger.warning("[TRACE %s] me.not_found user_id=%s", trace_id, user_id)
         raise HTTPException(404)
+    logger.info("[TRACE %s] me.success user_id=%s", trace_id, user_id)
     return dict(row)
 
 # ─── Profile ─────────────────────────────────────────────────
@@ -453,91 +543,161 @@ async def db_proxy(table: str, request: Request, user_id: str = Depends(get_curr
     if table not in ALLOWED_TABLES:
         raise HTTPException(400, f"Table not allowed: {table}")
 
+    trace_id = get_trace_id(request)
     uid = uuid.UUID(user_id)
+    owner_col = table_owner_column(table)
     params = dict(request.query_params)
     limit_n = int(params.pop("limit", "100"))
     order_col = params.pop("order", "created_at")
 
-    async with pool.acquire() as conn:
-        if request.method == "GET":
-            # Build SELECT with user_id filter
-            where_parts = ["user_id = $1"]
-            values = [uid]
-            idx = 2
-            for k, v in params.items():
-                if k in ("filter",): continue
-                where_parts.append(f"{k} = ${idx}")
-                values.append(v)
-                idx += 1
+    logger.info(
+        "[TRACE %s] db_proxy.start table=%s method=%s owner_col=%s limit=%s",
+        trace_id,
+        table,
+        request.method,
+        owner_col,
+        limit_n,
+    )
 
-            query = f"SELECT * FROM {table} WHERE {' AND '.join(where_parts)} ORDER BY {order_col} DESC LIMIT {limit_n}"
-            rows = await conn.fetch(query, *values)
-            return [dict(r) for r in rows]
+    try:
+        async with pool.acquire() as conn:
+            if request.method == "GET":
+                where_parts = [f"{owner_col} = $1"]
+                values = [uid]
+                idx = 2
+                for k, v in params.items():
+                    if k in ("filter",):
+                        continue
+                    where_parts.append(f"{k} = ${idx}")
+                    values.append(v)
+                    idx += 1
 
-        elif request.method == "POST":
-            body = await request.json()
-            if isinstance(body, list):
-                results = []
-                for item in body:
-                    item["user_id"] = str(uid)
-                    item.setdefault("id", str(uuid.uuid4()))
-                    cols = list(item.keys())
+                query = f"SELECT * FROM {table} WHERE {' AND '.join(where_parts)} ORDER BY {order_col} DESC LIMIT {limit_n}"
+                rows = await conn.fetch(query, *values)
+                logger.info("[TRACE %s] db_proxy.get.ok table=%s rows=%s", trace_id, table, len(rows))
+                return [dict(r) for r in rows]
+
+            elif request.method == "POST":
+                body = await request.json()
+
+                if table == "user_memory":
+                    items = body if isinstance(body, list) else [body]
+                    upserted = []
+                    for item in items:
+                        category = str(item.get("category", "context"))
+                        key = str(item.get("key", ""))
+                        value = str(item.get("value", ""))
+                        source = str(item.get("source", "api"))
+                        await conn.execute(
+                            """INSERT INTO user_memory (user_id, category, key, value, source, updated_at)
+                            VALUES ($1, $2, $3, $4, $5, now())
+                            ON CONFLICT (user_id, category, key)
+                            DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source, updated_at = now()""",
+                            uid,
+                            category,
+                            key,
+                            value,
+                            source,
+                        )
+                        upserted.append(
+                            {
+                                "user_id": str(uid),
+                                "category": category,
+                                "key": key,
+                                "value": value,
+                                "source": source,
+                            }
+                        )
+
+                    logger.info("[TRACE %s] db_proxy.post.user_memory.ok count=%s", trace_id, len(upserted))
+                    return upserted if isinstance(body, list) else upserted[0]
+
+                if isinstance(body, list):
+                    results = []
+                    for item in body:
+                        if owner_col == "id":
+                            item["id"] = str(uid)
+                        else:
+                            item["user_id"] = str(uid)
+                            item.setdefault("id", str(uuid.uuid4()))
+                        cols = list(item.keys())
+                        placeholders = ", ".join(f"${i+1}" for i in range(len(cols)))
+                        col_names = ", ".join(cols)
+                        vals = []
+                        for c in cols:
+                            v = item[c]
+                            if c in ("id", "user_id", "decision_id", "plan_id", "session_id"):
+                                v = uuid.UUID(str(v)) if v else None
+                            elif isinstance(v, dict) or isinstance(v, list):
+                                v = json.dumps(v)
+                            vals.append(v)
+                        try:
+                            await conn.execute(f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})", *vals)
+                            results.append(item)
+                        except Exception as e:
+                            results.append({"error": str(e)})
+                    logger.info("[TRACE %s] db_proxy.post.list.ok table=%s count=%s", trace_id, table, len(results))
+                    return results
+                else:
+                    if owner_col == "id":
+                        body["id"] = str(uid)
+                    else:
+                        body["user_id"] = str(uid)
+                        body.setdefault("id", str(uuid.uuid4()))
+                    cols = list(body.keys())
                     placeholders = ", ".join(f"${i+1}" for i in range(len(cols)))
                     col_names = ", ".join(cols)
                     vals = []
                     for c in cols:
-                        v = item[c]
+                        v = body[c]
                         if c in ("id", "user_id", "decision_id", "plan_id", "session_id"):
                             v = uuid.UUID(str(v)) if v else None
                         elif isinstance(v, dict) or isinstance(v, list):
                             v = json.dumps(v)
                         vals.append(v)
-                    try:
-                        await conn.execute(f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})", *vals)
-                        results.append(item)
-                    except Exception as e:
-                        results.append({"error": str(e)})
-                return results
-            else:
-                body["user_id"] = str(uid)
-                body.setdefault("id", str(uuid.uuid4()))
-                cols = list(body.keys())
-                placeholders = ", ".join(f"${i+1}" for i in range(len(cols)))
-                col_names = ", ".join(cols)
-                vals = []
-                for c in cols:
-                    v = body[c]
-                    if c in ("id", "user_id", "decision_id", "plan_id", "session_id"):
-                        v = uuid.UUID(str(v)) if v else None
-                    elif isinstance(v, dict) or isinstance(v, list):
+                    await conn.execute(f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})", *vals)
+                    logger.info("[TRACE %s] db_proxy.post.ok table=%s", trace_id, table)
+                    return body
+
+            elif request.method == "PUT":
+                body = await request.json()
+                sets = []
+                vals = [uid]
+                idx = 2
+                for k, v in body.items():
+                    if k in ("id", "user_id"):
+                        continue
+                    if isinstance(v, dict) or isinstance(v, list):
                         v = json.dumps(v)
+                    sets.append(f"{k} = ${idx}")
                     vals.append(v)
-                await conn.execute(f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})", *vals)
-                return body
+                    idx += 1
 
-        elif request.method == "PUT":
-            body = await request.json()
-            sets = []
-            vals = [uid]
-            idx = 2
-            for k, v in body.items():
-                if k in ("id", "user_id"): continue
-                if isinstance(v, dict) or isinstance(v, list):
-                    v = json.dumps(v)
-                sets.append(f"{k} = ${idx}")
-                vals.append(v)
-                idx += 1
+                if not sets:
+                    logger.info("[TRACE %s] db_proxy.put.no_fields table=%s", trace_id, table)
+                    return {"status": "ok", "updated": 0}
 
-            # Get target ID from query params
-            target_id = params.get("id")
-            if target_id:
-                where = f"user_id = $1 AND id = ${idx}"
-                vals.append(uuid.UUID(target_id))
-            else:
-                where = "user_id = $1"
+                target_id = params.get("id")
+                if target_id and owner_col == "user_id":
+                    where = f"user_id = $1 AND id = ${idx}"
+                    vals.append(uuid.UUID(target_id))
+                else:
+                    where = f"{owner_col} = $1"
+                    if target_id and owner_col == "id" and target_id != str(uid):
+                        logger.warning(
+                            "[TRACE %s] db_proxy.put.id_mismatch table=%s target_id=%s auth_user_id=%s",
+                            trace_id,
+                            table,
+                            target_id,
+                            uid,
+                        )
 
-            await conn.execute(f"UPDATE {table} SET {', '.join(sets)} WHERE {where}", *vals)
-            return {"status": "ok"}
+                await conn.execute(f"UPDATE {table} SET {', '.join(sets)} WHERE {where}", *vals)
+                logger.info("[TRACE %s] db_proxy.put.ok table=%s", trace_id, table)
+                return {"status": "ok"}
+    except Exception:
+        logger.exception("[TRACE %s] db_proxy.error table=%s method=%s", trace_id, table, request.method)
+        raise
 
 # ─── RPC (Supabase RPC compat) ───────────────────────────────
 

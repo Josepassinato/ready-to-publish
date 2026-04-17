@@ -18,7 +18,14 @@ export function useOnboardingCheck() {
       .select("onboarding_completed")
       .eq("id", user.id)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn("[ONBOARDING_CHECK] query_failed", { message: error.message, userId: user.id });
+          // Fallback seguro: se não conseguimos ler, exige onboarding
+          setNeedsOnboarding(true);
+          setLoading(false);
+          return;
+        }
         setNeedsOnboarding(!data?.onboarding_completed);
         setLoading(false);
       });
