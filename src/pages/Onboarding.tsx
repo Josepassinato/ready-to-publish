@@ -1,13 +1,46 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, getToken } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Shield, ArrowRight, ArrowLeft, User, Briefcase, Heart, PlusCircle, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Shield, ArrowRight, ArrowLeft, User, Briefcase, Heart, PlusCircle, Trash2, Sparkles, Copy, Check, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const IMPORT_PROMPT = `Gere um arquivo JSON com tudo que você sabe sobre mim, seguindo EXATAMENTE este schema:
+
+{
+  "version": "1.0",
+  "generated_at": "ISO-8601",
+  "source": "chatgpt",
+  "facts": [
+    {
+      "category": "personal | professional | project | preference | relationship | health | financial | behavioral_pattern | context",
+      "key": "identificador_curto_em_snake_case",
+      "value": "fato atômico autocontido em português",
+      "confidence": 0.0
+    }
+  ]
+}
+
+Regras:
+- Cada fato deve ser atômico (uma informação por fato).
+- Cada fato deve ser autocontido (faz sentido sem contexto externo).
+- Use APENAS as categorias listadas.
+- Seja exaustivo: gere pelo menos 30 fatos se souber tanto.
+- Cubra: identidade, profissão, projetos atuais, preferências declaradas, pessoas importantes, padrões observados, contextos recorrentes.
+- confidence entre 0.0 e 1.0 conforme sua certeza sobre o fato.
+- Retorne APENAS o JSON dentro de um bloco \`\`\`json, sem texto antes ou depois.`;
+
+type ImportedFact = {
+  category: string;
+  key: string;
+  value: string;
+  confidence?: number;
+};
 
 interface Venture {
   name: string;
@@ -42,6 +75,7 @@ const STEPS = [
   { icon: User, title: "Sobre Você", subtitle: "Quem é você e o que faz" },
   { icon: Briefcase, title: "Sua Operação", subtitle: "Contexto da sua atuação" },
   { icon: Heart, title: "Seu Estado Atual", subtitle: "Como você está agora" },
+  { icon: Sparkles, title: "Importar Perfil", subtitle: "Trazer o que o ChatGPT já sabe sobre você (opcional)" },
 ];
 
 const newVenture = (): Venture => ({
@@ -76,6 +110,10 @@ const Onboarding = () => {
     load: 50,
   });
   const [ventures, setVentures] = useState<Venture[]>([newVenture()]);
+  const [importFacts, setImportFacts] = useState<ImportedFact[] | null>(null);
+  const [importError, setImportError] = useState<string>("");
+  const [importFileName, setImportFileName] = useState<string>("");
+  const [promptCopied, setPromptCopied] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -101,6 +139,92 @@ const Onboarding = () => {
   const removeVenture = (index: number) =>
     setVentures((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
 
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(IMPORT_PROMPT);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      toast({ title: "Não foi possível copiar", description: "Selecione o texto manualmente.", variant: "destructive" });
+    }
+  };
+
+  const extractJsonFromText = (text: string): unknown => {
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = (fenceMatch ? fenceMatch[1] : text).trim();
+    return JSON.parse(candidate);
+  };
+
+  const validateFacts = (parsed: unknown): ImportedFact[] => {
+    if (!parsed || typeof parsed !== "object" || !("facts" in parsed)) {
+      throw new Error("JSON precisa ter a chave 'facts' com um array.");
+    }
+    const raw = (parsed as { facts: unknown }).facts;
+    if (!Array.isArray(raw) || raw.length === 0) {
+      throw new Error("'facts' deve ser um array não-vazio.");
+    }
+    return raw.map((item, i) => {
+      if (!item || typeof item !== "object") throw new Error(`Fato #${i + 1} inválido.`);
+      const obj = item as Record<string, unknown>;
+      const category = String(obj.category || "").trim().toLowerCase();
+      const key = String(obj.key || "").trim();
+      const value = String(obj.value || "").trim();
+      if (!category || !key || !value) throw new Error(`Fato #${i + 1}: category, key e value são obrigatórios.`);
+      return {
+        category,
+        key,
+        value,
+        confidence: typeof obj.confidence === "number" ? obj.confidence : 1.0,
+      };
+    });
+  };
+
+  const handleImportFile = async (file: File) => {
+    setImportError("");
+    setImportFacts(null);
+    setImportFileName(file.name);
+    try {
+      const text = await file.text();
+      const parsed = extractJsonFromText(text);
+      const facts = validateFacts(parsed);
+      setImportFacts(facts);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setImportError(message);
+    }
+  };
+
+  const submitImport = async (): Promise<boolean> => {
+    if (!importFacts || importFacts.length === 0) return true;
+    const token = getToken();
+    if (!token) {
+      toast({ title: "Sessão inválida", description: "Faça login novamente.", variant: "destructive" });
+      return false;
+    }
+    try {
+      const resp = await fetch("/api/memory/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+        body: JSON.stringify({ version: "1.0", source: "chatgpt", facts: importFacts }),
+      });
+      if (!resp.ok) {
+        const detail = await resp.text();
+        toast({ title: "Falha no import", description: detail.slice(0, 200), variant: "destructive" });
+        return false;
+      }
+      const result = await resp.json();
+      toast({
+        title: "Perfil importado",
+        description: `${result.facts_inserted} fatos adicionados à sua memória.`,
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast({ title: "Erro de rede no import", description: message, variant: "destructive" });
+      return false;
+    }
+  };
+
   const normalizeVentures = () =>
     ventures
       .map((venture) => ({
@@ -125,9 +249,18 @@ const Onboarding = () => {
       step,
       hasMultipleBusinesses: data.hasMultipleBusinesses,
       venturesCount: ventures.length,
+      importFactsCount: importFacts?.length || 0,
     });
 
     try {
+      if (importFacts && importFacts.length > 0) {
+        const imported = await submitImport();
+        if (!imported) {
+          setSaving(false);
+          return;
+        }
+        console.info(`[ONBOARDING][${traceId}] save:import-ok count=${importFacts.length}`);
+      }
       const normalizedVentures = normalizeVentures();
       const profileCompany = data.hasMultipleBusinesses
         ? (normalizedVentures.length > 0 ? `Portfólio com ${normalizedVentures.length} negócios` : "Portfólio multi-negócios")
@@ -465,6 +598,100 @@ const Onboarding = () => {
               ))}
             </>
           )}
+
+          {step === 3 && (
+            <div className="space-y-5">
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2">
+                <p className="text-sm text-foreground">
+                  Traga para o LifeOS o que outra IA (ChatGPT, Claude ou Gemini) já aprendeu sobre você.
+                  É opcional — você pode pular e continuar.
+                </p>
+                <ol className="text-xs text-muted-foreground list-decimal pl-4 space-y-1">
+                  <li>Copie o prompt abaixo.</li>
+                  <li>Cole no ChatGPT e salve a resposta como arquivo <code>.json</code>.</li>
+                  <li>Faça upload aqui e confira o preview antes de confirmar.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Prompt para o ChatGPT</Label>
+                  <Button type="button" size="sm" variant="outline" onClick={copyPrompt}>
+                    {promptCopied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                    {promptCopied ? "Copiado" : "Copiar prompt"}
+                  </Button>
+                </div>
+                <Textarea value={IMPORT_PROMPT} readOnly className="min-h-[180px] font-mono text-xs" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Arquivo JSON</Label>
+                <label className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                  <div className="text-sm">
+                    <p className="text-foreground">
+                      {importFileName ? importFileName : "Clique para escolher o arquivo .json"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Apenas o arquivo — nada é enviado antes de você confirmar.
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handleImportFile(file);
+                    }}
+                  />
+                </label>
+                {importError && (
+                  <p className="text-xs text-destructive">Erro no arquivo: {importError}</p>
+                )}
+              </div>
+
+              {importFacts && importFacts.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Preview — {importFacts.length} fatos</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setImportFacts(null); setImportFileName(""); setImportError(""); }}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Remover arquivo
+                    </button>
+                  </div>
+                  <div className="rounded-xl border border-border max-h-72 overflow-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/40 sticky top-0">
+                        <tr className="text-left">
+                          <th className="px-3 py-2 font-medium">Categoria</th>
+                          <th className="px-3 py-2 font-medium">Chave</th>
+                          <th className="px-3 py-2 font-medium">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importFacts.slice(0, 100).map((fact, index) => (
+                          <tr key={index} className="border-t border-border">
+                            <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fact.category}</td>
+                            <td className="px-3 py-2 font-mono">{fact.key}</td>
+                            <td className="px-3 py-2">{fact.value}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {importFacts.length > 100 && (
+                      <p className="text-xs text-muted-foreground px-3 py-2">
+                        Mostrando 100 de {importFacts.length}. Todos serão importados ao confirmar.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between pt-2">
@@ -493,7 +720,13 @@ const Onboarding = () => {
             </Button>
           ) : (
             <Button onClick={saveOnboarding} disabled={saving}>
-              {saving ? "Salvando..." : "Começar"}
+              {saving
+                ? "Salvando..."
+                : importFacts && importFacts.length > 0
+                ? `Importar ${importFacts.length} fatos e começar`
+                : step === 3
+                ? "Pular e começar"
+                : "Começar"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}

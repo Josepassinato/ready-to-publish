@@ -728,3 +728,97 @@ async def fn_proxy(fn: str, request: Request, user_id: str = Depends(get_current
     if fn == "elevenlabs-scribe-token":
         return {"token": ""}
     raise HTTPException(404, f"Unknown function: {fn}")
+
+# ─── Memory Import (ChatGPT/Claude/Gemini profile file) ──────
+
+ALLOWED_IMPORT_CATEGORIES = {
+    "personal", "professional", "project", "preference",
+    "relationship", "health", "financial",
+    "behavioral_pattern", "context",
+}
+ALLOWED_IMPORT_SOURCES = {"chatgpt", "claude", "gemini", "manual"}
+MAX_FACTS_PER_IMPORT = 500
+MAX_VALUE_LEN = 2000
+MAX_KEY_LEN = 120
+
+
+class ImportedFact(BaseModel):
+    category: str
+    key: str
+    value: str
+    confidence: Optional[float] = 1.0
+
+
+class MemoryImportReq(BaseModel):
+    version: str = "1.0"
+    generated_at: Optional[str] = None
+    source: str = "chatgpt"
+    facts: list[ImportedFact]
+
+
+@app.post("/api/memory/import")
+async def memory_import(
+    data: MemoryImportReq,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    trace_id = get_trace_id(request)
+
+    if data.source not in ALLOWED_IMPORT_SOURCES:
+        raise HTTPException(400, f"source inválido (permitidos: {sorted(ALLOWED_IMPORT_SOURCES)})")
+    if not data.facts:
+        raise HTTPException(400, "facts vazio")
+    if len(data.facts) > MAX_FACTS_PER_IMPORT:
+        raise HTTPException(400, f"máximo {MAX_FACTS_PER_IMPORT} fatos por import")
+
+    invalid: list[dict] = []
+    cleaned: list[dict] = []
+    seen: dict[tuple, int] = {}
+    for i, f in enumerate(data.facts):
+        cat = (f.category or "").strip().lower()
+        key = (f.key or "").strip()
+        val = (f.value or "").strip()
+        if cat not in ALLOWED_IMPORT_CATEGORIES:
+            invalid.append({"index": i, "reason": f"category inválida: '{cat}'"})
+            continue
+        if not key or len(key) > MAX_KEY_LEN:
+            invalid.append({"index": i, "reason": "key vazia ou acima de 120 chars"})
+            continue
+        if not val or len(val) > MAX_VALUE_LEN:
+            invalid.append({"index": i, "reason": "value vazio ou acima de 2000 chars"})
+            continue
+        dedup = (cat, key)
+        if dedup in seen:
+            cleaned[seen[dedup]] = {"category": cat, "key": key, "value": val}
+        else:
+            seen[dedup] = len(cleaned)
+            cleaned.append({"category": cat, "key": key, "value": val})
+
+    if not cleaned:
+        raise HTTPException(400, {"error": "nenhum fato válido", "invalid": invalid})
+
+    uid = uuid.UUID(user_id)
+    source_tag = f"{data.source}_import_{int(time.time())}"
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for c in cleaned:
+                await conn.execute(
+                    """INSERT INTO user_memory (user_id, category, key, value, source, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, now())
+                    ON CONFLICT (user_id, category, key)
+                    DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source, updated_at = now()""",
+                    uid, c["category"], c["key"], c["value"], source_tag,
+                )
+
+    logger.info(
+        "[TRACE %s] memory.import.ok user_id=%s source=%s inserted=%s invalid=%s",
+        trace_id, user_id, source_tag, len(cleaned), len(invalid),
+    )
+    return {
+        "ok": True,
+        "source_tag": source_tag,
+        "facts_inserted": len(cleaned),
+        "facts_invalid": len(invalid),
+        "invalid_details": invalid[:20],
+    }
