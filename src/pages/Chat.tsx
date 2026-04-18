@@ -47,15 +47,13 @@ const Chat = () => {
   const sessionIdRef = useRef(crypto.randomUUID());
   const { isPlaying, isRecording, currentTranscript, speak, stopPlaying, startRecording, stopRecording } = useVoice();
 
-  // Derive user's first name from metadata, profile, or fallback
+  // Derive user's first name from profile, or fallback
   const userName = useMemo(() => {
     if (!user) return "Lider";
-    const meta = user.user_metadata;
-    const raw = meta?.name || meta?.full_name || meta?.display_name || "";
-    // Extract first name only
+    const raw = user.name || "";
     const firstName = raw.trim().split(/\s+/)[0];
     return firstName || "Lider";
-  }, [user, userName]);
+  }, [user]);
 
   // Load memory context and feature flags on mount
   useEffect(() => {

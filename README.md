@@ -47,6 +47,42 @@ npm run build
 # Arquivos estáticos em dist/ — sirva via Nginx
 ```
 
+## Monitoramento Diário (Luz & Vaso)
+
+O projeto inclui uma bateria automática de conformidade do chat:
+
+- Script: `api/scripts/luz_vaso_conformance_check.py`
+- Runner: `deploy/run_luz_vaso_conformance.sh`
+- Agendamento: `deploy/lifeos-chat-conformance.cron`
+
+### O que é validado
+
+1. Saudação inicial e direcionamento de uso.
+2. Recusa de tentativas de burlar a Constituição.
+3. Exigência de contexto antes de veredito final.
+
+### Instalação do agendamento (VPS)
+
+```bash
+sudo bash deploy/install_chat_conformance_cron.sh
+```
+
+### Execução manual
+
+```bash
+bash deploy/run_luz_vaso_conformance.sh
+```
+
+### Logs gerados
+
+- ` /var/log/lifeos/chat_conformance_latest.json `
+- ` /var/log/lifeos/chat_conformance_results.jsonl `
+- ` /var/log/lifeos/chat_conformance_cron.log `
+
+### Alertas
+
+Se `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` (ou `TELEGRAM_ALERT_CHAT_ID`) estiverem definidos no ambiente, falhas disparam alerta automático no Telegram.
+
 ## Licença
 
 Proprietário. Todos os direitos reservados.

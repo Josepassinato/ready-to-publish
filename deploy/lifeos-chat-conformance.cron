@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=America/New_York
+
+# Daily at 08:17 America/New_York
+17 8 * * * root /var/www/lifeos/deploy/run_luz_vaso_conformance.sh >> /var/log/lifeos/chat_conformance_cron.log 2>&1
+
