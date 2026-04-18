@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Na sua máquina local
-git clone https://github.com/Josepassinato/ready-to-publish.git lifeos
+git clone https://github.com/Josepassinato/lifeos.git lifeos
 cd lifeos
 
 # 2. Configure variáveis
@@ -65,7 +65,7 @@ Na sua máquina local:
 
 ```bash
 # Clone o repositório
-git clone https://github.com/Josepassinato/ready-to-publish.git lifeos
+git clone https://github.com/Josepassinato/lifeos.git lifeos
 cd lifeos
 
 # Configure as variáveis de ambiente
