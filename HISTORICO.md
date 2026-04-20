@@ -54,11 +54,21 @@ Governo de Decisão. Protocolo Luz & Vaso, Constituição Artigos I-VII.
 - ✅ Bug original reproduzido → confirmado 422 ao invés de 500 (antes: `state_severity="normal"` vazava até asyncpg → `DataError`).
 - API reloadada via `pm2 restart lifeos-api`, online, smoke 401 OK.
 
+**MCP exposição pública (ChatGPT Custom Connector)**:
+- Diagnóstico: server MCP (4 tools) construído em `api/mcp/server.py` desde commit `dd11c75`, local `POST /mcp/ tools/list` → 200, mas URL pública `https://lifeos.12brain.org/mcp/` retornava **405** (nginx sem `location /mcp/`) e depois **421 Invalid Host** (FastMCP DNS rebinding protection).
+- ✅ Fix 1 — nginx: adicionado `location /mcp/` em `/etc/nginx/sites-enabled/lifeos` com `proxy_buffering off` + `chunked_transfer_encoding on` (compat com Streamable HTTP). Backup antigo movido pra `/root/nginx-backups/` (estava duplicando server_name por estar dentro de `sites-enabled/`).
+- ✅ Fix 2 — FastMCP: passado `transport_security=TransportSecuritySettings(allowed_hosts=[...])` com `lifeos.12brain.org` + loopback. Lista configurável via env `LIFEOS_MCP_ALLOWED_HOSTS`.
+- ✅ E2E público: `POST https://lifeos.12brain.org/mcp/` `tools/list` → **200** com os 4 tools. `tools/call list_decisions` sem Bearer → erro estruturado MCP (`isError:true`, mensagem orienta criar key) — compatível com doutrina "não retornar erro cru".
+- ⚠️ **Gap remanescente**: UI `/settings/keys` ainda não existe. Para ativar no ChatGPT, criar key via `POST /api/public/keys` (curl+JWT).
+- ⚠️ **Não validado**: conexão real no ChatGPT Pro Custom Connector + `evaluate_decision` de ponta a ponta.
+
 **Pendente**:
 - [ ] Wave 3: `update_user_memory()` automático com hook pós-chat (decisão de produto: quando extrair fatos? custo de tokens Grok).
 - [ ] Decisão sobre CASCADE em `user_memory`/`chat_messages`.
 - [ ] Continuar Wave 5 em outros endpoints com `data: dict` cru (varrer o main.py e aplicar pattern).
 - [ ] Criar `.planning/SESSION-NOTES.md` (Regra 4 do 12Brain) — este HISTORICO.md o substitui por enquanto.
+- [ ] UI `/settings/keys` para geração/revogação de `lo_sk_*` sem precisar curl.
+- [ ] Teste E2E real: configurar ChatGPT Custom Connector e chamar `evaluate_decision`.
 
 **Estado Integrações**:
 - Telegram alerts: token em `api/.env` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID=1762460701`) — chat conformance cron

@@ -20,16 +20,23 @@ from typing import Optional
 
 import httpx
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 # Internal base URL — the MCP server makes loopback calls to our own API.
 # Override with LIFEOS_API_URL env var for dev/testing.
 LIFEOS_API_URL = os.getenv("LIFEOS_API_URL", "http://127.0.0.1:8010")
+
+_allowed_hosts = [h.strip() for h in os.getenv(
+    "LIFEOS_MCP_ALLOWED_HOSTS",
+    "lifeos.12brain.org,127.0.0.1,127.0.0.1:8010,localhost,localhost:8010",
+).split(",") if h.strip()]
 
 lifeos_mcp = FastMCP(
     "LifeOS",
     stateless_http=True,
     json_response=True,
     streamable_http_path="/",
+    transport_security=TransportSecuritySettings(allowed_hosts=_allowed_hosts),
 )
 
 
