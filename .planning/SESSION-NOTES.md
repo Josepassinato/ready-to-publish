@@ -3,12 +3,18 @@
 > Estado da última sessão. Ler primeiro ao iniciar nova sessão (Regra 4 do 12Brain).
 > Fonte primária do histórico narrativo continua sendo `/var/www/lifeos/HISTORICO.md`.
 
-## Última sessão: 2026-04-20 — Wave 5 + MCP público
+## Última sessão: 2026-04-20 — Wave 5 + MCP público + Wave B
 
-**Objetivo**: fechar Wave 5 (Pydantic validation em `POST /api/decisions`) e
-diagnosticar/ativar a conexão ChatGPT via MCP.
+**Objetivo**: fechar Wave 5 (Pydantic em `POST /api/decisions`), ativar MCP
+publicamente para ChatGPT, alinhar FKs user_memory/chat_messages.
 
-**Status**: CONCLUÍDO. Tree clean, tudo em `origin/main`.
+**Status**: CONCLUÍDO. Tree clean, `origin/main` sincronizado até `151f462`.
+
+**Commits da sessão**:
+- `68e5ada` — Wave 5: DecisionCreate Pydantic + 12 ranges + Literal
+- `0ca2617` — MCP público: nginx location + TransportSecuritySettings
+- `ef41703` — docs: SESSION-NOTES.md criado
+- `151f462` — Wave B: CASCADE em user_memory + chat_messages
 
 ### O que foi feito
 - **Wave 5** (commit `68e5ada`): `DecisionCreate` BaseModel, 12 scores com `Field(ge=0, le=100)`, `decision_type: DecisionTypeLiteral` do governance_engine. Novo `api/tests/test_decision_validation.py`. Suite 62/62.

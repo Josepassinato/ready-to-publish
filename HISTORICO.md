@@ -62,12 +62,15 @@ Governo de Decisão. Protocolo Luz & Vaso, Constituição Artigos I-VII.
 - ⚠️ **Gap remanescente**: UI `/settings/keys` ainda não existe. Para ativar no ChatGPT, criar key via `POST /api/public/keys` (curl+JWT).
 - ⚠️ **Não validado**: conexão real no ChatGPT Pro Custom Connector + `evaluate_decision` de ponta a ponta.
 
+**Wave B — CASCADE nas FKs faltantes** (commit `151f462`):
+- ✅ `deploy/wave-b-cascade.sql`: `user_memory_user_id_fkey` e `chat_messages_user_id_fkey` migradas de `ON DELETE NO ACTION` → `ON DELETE CASCADE`. Aplicado em prod via transação. Agora 9/9 FKs `user_id → profiles(id)` são CASCADE. `DELETE FROM users` volta a ser atômico.
+- ✅ 62/62 testes seguem passando.
+
 **Pendente**:
 - [ ] Wave 3: `update_user_memory()` automático com hook pós-chat (decisão de produto: quando extrair fatos? custo de tokens Grok).
-- [ ] Decisão sobre CASCADE em `user_memory`/`chat_messages`.
-- [ ] Continuar Wave 5 em outros endpoints com `data: dict` cru (varrer o main.py e aplicar pattern).
-- [ ] Criar `.planning/SESSION-NOTES.md` (Regra 4 do 12Brain) — este HISTORICO.md o substitui por enquanto.
+- [ ] Governance_engine fallback `DECISION_TYPES[2]` (linhas 271, 399, 491) virou código morto com Pydantic Literal no boundary — trocar por `raise` defensivo.
 - [ ] UI `/settings/keys` para geração/revogação de `lo_sk_*` sem precisar curl.
+- [ ] Refactor Supabase legado no frontend (14 arquivos: 5 pages + 5 lib/hooks + 4 outros) — substituir por chamadas `/api/*` do VPS. Só depois disso remove `VITE_SUPABASE_*` do `.env` raiz.
 - [ ] Teste E2E real: configurar ChatGPT Custom Connector e chamar `evaluate_decision`.
 
 **Estado Integrações**:
