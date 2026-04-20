@@ -739,7 +739,14 @@ async def rpc_proxy(fn: str, request: Request, user_id: str = Depends(get_curren
 async def fn_proxy(fn: str, request: Request, user_id: str = Depends(get_current_user)):
     """Edge function proxy."""
     if fn == "channel-status":
-        return {"telegram": {"connected": False}, "whatsapp": {"connected": False}}
+        uid = uuid.UUID(user_id)
+        async with pool.acquire() as conn:
+            tg = await conn.fetchrow("SELECT chat_id, linked_at FROM telegram_users WHERE user_id = $1", uid)
+            wa = await conn.fetchrow("SELECT phone, linked_at FROM whatsapp_users WHERE user_id = $1", uid)
+        return {
+            "telegram": {"connected": tg is not None, "chat_id": tg["chat_id"] if tg else None, "linked_at": tg["linked_at"].isoformat() if tg else None},
+            "whatsapp": {"connected": wa is not None, "phone": wa["phone"] if wa else None, "linked_at": wa["linked_at"].isoformat() if wa else None},
+        }
     if fn == "elevenlabs-scribe-token":
         return {"token": ""}
     raise HTTPException(404, f"Unknown function: {fn}")
