@@ -9,7 +9,7 @@ import time
 import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, AsyncExitStack
 
 import jwt
 import httpx
@@ -42,14 +42,29 @@ async def lifespan(app: FastAPI):
     global pool
     logger.info("startup.begin db_pool_init")
     pool = await asyncpg.create_pool(DB_URL, min_size=2, max_size=10)
+    app.state.pool = pool
     logger.info("startup.ready db_pool_ok")
-    yield
-    logger.info("shutdown.begin")
+    # MCP session manager runs alongside FastAPI lifespan
+    from api.mcp.server import lifeos_mcp
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(lifeos_mcp.session_manager.run())
+        logger.info("startup.ready mcp_session_manager_ok")
+        yield
+        logger.info("shutdown.begin")
     await pool.close()
     logger.info("shutdown.done")
 
 app = FastAPI(title="LifeOS API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# Public / MCP-facing router (Bearer-authed API keys)
+from api import public_api  # noqa: E402
+app.include_router(public_api.router)
+app.include_router(public_api.admin_router)
+
+# MCP server (Streamable HTTP transport) mounted at /mcp
+from api.mcp.server import lifeos_mcp  # noqa: E402
+app.mount("/mcp", lifeos_mcp.streamable_http_app())
 
 def make_trace_id() -> str:
     return f"req-{uuid.uuid4().hex[:12]}"

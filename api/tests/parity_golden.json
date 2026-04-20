@@ -1,0 +1,1917 @@
+{
+  "strong_tactical": {
+    "constitutionVersion": "0.4.0",
+    "verdict": "SIM",
+    "overallScore": 83,
+    "gap": 0,
+    "blocked": false,
+    "state": {
+      "id": "controlled_expansion",
+      "label": "Expansão Controlada",
+      "severity": 1,
+      "color": "#0B7A4C",
+      "min": 76,
+      "max": 100
+    },
+    "stateConfidence": 0.6,
+    "layers": {
+      "human": {
+        "score": 81,
+        "pressureCapacity": 80,
+        "impulsivityRisk": 19
+      },
+      "business": {
+        "score": 75,
+        "margin": 60,
+        "complexity": 32
+      },
+      "financial": {
+        "score": 92,
+        "leverage": 0.02,
+        "intendedLeverage": 0.02,
+        "runway": 13.3,
+        "tensionProbability": 5
+      },
+      "relational": {
+        "score": 84,
+        "conflictRisk": 8
+      }
+    },
+    "domainScores": {
+      "financial": 92,
+      "emotional": 80,
+      "decisional": 82,
+      "operational": 75,
+      "relational": 84,
+      "energetic": 80
+    },
+    "domainDetails": [
+      {
+        "id": "financial",
+        "label": "Financeira",
+        "score": 92,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "emotional",
+        "label": "Emocional",
+        "score": 80,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "decisional",
+        "label": "Decisória",
+        "score": 82,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "operational",
+        "label": "Operacional",
+        "score": 75,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "relational",
+        "label": "Relacional",
+        "score": 84,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "energetic",
+        "label": "Energética",
+        "score": 80,
+        "alertLevel": "ok"
+      }
+    ],
+    "violations": [],
+    "scenarios": [
+      {
+        "id": "optimistic",
+        "name": "Otimista",
+        "color": "#0B7A4C",
+        "leaderLoad": 13,
+        "systemicRisk": 13,
+        "failureProbability": 13,
+        "monthsToTension": 17,
+        "complexityAdded": 11,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 240250
+          },
+          {
+            "month": 2,
+            "cash": 280500
+          },
+          {
+            "month": 3,
+            "cash": 320750
+          },
+          {
+            "month": 4,
+            "cash": 361000
+          },
+          {
+            "month": 5,
+            "cash": 401250
+          },
+          {
+            "month": 6,
+            "cash": 441500
+          },
+          {
+            "month": 7,
+            "cash": 481750
+          },
+          {
+            "month": 8,
+            "cash": 522000
+          },
+          {
+            "month": 9,
+            "cash": 562250
+          },
+          {
+            "month": 10,
+            "cash": 602500
+          },
+          {
+            "month": 11,
+            "cash": 642750
+          },
+          {
+            "month": 12,
+            "cash": 683000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "realistic",
+        "name": "Realista",
+        "color": "#2563EB",
+        "leaderLoad": 19,
+        "systemicRisk": 18,
+        "failureProbability": 18,
+        "monthsToTension": 12,
+        "complexityAdded": 16,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 235000
+          },
+          {
+            "month": 2,
+            "cash": 270000
+          },
+          {
+            "month": 3,
+            "cash": 305000
+          },
+          {
+            "month": 4,
+            "cash": 340000
+          },
+          {
+            "month": 5,
+            "cash": 375000
+          },
+          {
+            "month": 6,
+            "cash": 410000
+          },
+          {
+            "month": 7,
+            "cash": 445000
+          },
+          {
+            "month": 8,
+            "cash": 480000
+          },
+          {
+            "month": 9,
+            "cash": 515000
+          },
+          {
+            "month": 10,
+            "cash": 550000
+          },
+          {
+            "month": 11,
+            "cash": 585000
+          },
+          {
+            "month": 12,
+            "cash": 620000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "stress",
+        "name": "Estresse",
+        "color": "#E8590C",
+        "leaderLoad": 27,
+        "systemicRisk": 25,
+        "failureProbability": 26,
+        "monthsToTension": 9,
+        "complexityAdded": 22,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 224500
+          },
+          {
+            "month": 2,
+            "cash": 249000
+          },
+          {
+            "month": 3,
+            "cash": 273500
+          },
+          {
+            "month": 4,
+            "cash": 298000
+          },
+          {
+            "month": 5,
+            "cash": 322500
+          },
+          {
+            "month": 6,
+            "cash": 347000
+          },
+          {
+            "month": 7,
+            "cash": 371500
+          },
+          {
+            "month": 8,
+            "cash": 396000
+          },
+          {
+            "month": 9,
+            "cash": 420500
+          },
+          {
+            "month": 10,
+            "cash": 445000
+          },
+          {
+            "month": 11,
+            "cash": 469500
+          },
+          {
+            "month": 12,
+            "cash": 494000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "hfailure",
+        "name": "Falha Humana",
+        "color": "#E03131",
+        "leaderLoad": 34,
+        "systemicRisk": 32,
+        "failureProbability": 33,
+        "monthsToTension": 7,
+        "complexityAdded": 29,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 214000
+          },
+          {
+            "month": 2,
+            "cash": 228000
+          },
+          {
+            "month": 3,
+            "cash": 242000
+          },
+          {
+            "month": 4,
+            "cash": 256000
+          },
+          {
+            "month": 5,
+            "cash": 270000
+          },
+          {
+            "month": 6,
+            "cash": 284000
+          },
+          {
+            "month": 7,
+            "cash": 298000
+          },
+          {
+            "month": 8,
+            "cash": 312000
+          },
+          {
+            "month": 9,
+            "cash": 326000
+          },
+          {
+            "month": 10,
+            "cash": 340000
+          },
+          {
+            "month": 11,
+            "cash": 354000
+          },
+          {
+            "month": 12,
+            "cash": 368000
+          }
+        ],
+        "breakMonth": -1
+      }
+    ],
+    "readinessPlan": null,
+    "decisionType": {
+      "id": "tactical",
+      "label": "Tática",
+      "level": 4,
+      "minRequired": 35
+    },
+    "transitionWarning": null
+  },
+  "weak_existential": {
+    "constitutionVersion": "0.4.0",
+    "verdict": "NÃO AGORA",
+    "overallScore": 7,
+    "gap": 78,
+    "blocked": true,
+    "state": {
+      "id": "active_failure",
+      "label": "Falha Estrutural Ativa",
+      "severity": 9,
+      "color": "#E03131",
+      "min": 0,
+      "max": 15
+    },
+    "stateConfidence": 0.6,
+    "layers": {
+      "human": {
+        "score": 10,
+        "pressureCapacity": 12,
+        "impulsivityRisk": 92
+      },
+      "business": {
+        "score": 8,
+        "margin": 0,
+        "complexity": 100
+      },
+      "financial": {
+        "score": 9,
+        "leverage": 1.67,
+        "intendedLeverage": 2.5,
+        "runway": 0.3,
+        "tensionProbability": 71
+      },
+      "relational": {
+        "score": 0,
+        "conflictRisk": 100
+      }
+    },
+    "domainScores": {
+      "financial": 9,
+      "emotional": 11,
+      "decisional": 9,
+      "operational": 8,
+      "relational": 0,
+      "energetic": 11
+    },
+    "domainDetails": [
+      {
+        "id": "financial",
+        "label": "Financeira",
+        "score": 9,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "emotional",
+        "label": "Emocional",
+        "score": 11,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "decisional",
+        "label": "Decisória",
+        "score": 9,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "operational",
+        "label": "Operacional",
+        "score": 8,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "relational",
+        "label": "Relacional",
+        "score": 0,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "energetic",
+        "label": "Energética",
+        "score": 11,
+        "alertLevel": "critical"
+      }
+    ],
+    "violations": [
+      {
+        "domain": "financial",
+        "label": "Financeira",
+        "score": 9,
+        "required": 70,
+        "level": "critical"
+      },
+      {
+        "domain": "emotional",
+        "label": "Emocional",
+        "score": 11,
+        "required": 70,
+        "level": "critical"
+      },
+      {
+        "domain": "decisional",
+        "label": "Decisória",
+        "score": 9,
+        "required": 70,
+        "level": "critical"
+      },
+      {
+        "domain": "operational",
+        "label": "Operacional",
+        "score": 8,
+        "required": 70,
+        "level": "critical"
+      },
+      {
+        "domain": "relational",
+        "label": "Relacional",
+        "score": 0,
+        "required": 70,
+        "level": "critical"
+      },
+      {
+        "domain": "energetic",
+        "label": "Energética",
+        "score": 11,
+        "required": 70,
+        "level": "critical"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "optimistic",
+        "name": "Otimista",
+        "color": "#0B7A4C",
+        "leaderLoad": 86,
+        "systemicRisk": 68,
+        "failureProbability": 75,
+        "monthsToTension": 1,
+        "complexityAdded": 35,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 2000
+          },
+          {
+            "month": 1,
+            "cash": -1450
+          },
+          {
+            "month": 2,
+            "cash": -4900
+          },
+          {
+            "month": 3,
+            "cash": -8350
+          },
+          {
+            "month": 4,
+            "cash": -11800
+          },
+          {
+            "month": 5,
+            "cash": -15250
+          },
+          {
+            "month": 6,
+            "cash": -18700
+          },
+          {
+            "month": 7,
+            "cash": -22150
+          },
+          {
+            "month": 8,
+            "cash": -25600
+          },
+          {
+            "month": 9,
+            "cash": -29050
+          },
+          {
+            "month": 10,
+            "cash": -32500
+          },
+          {
+            "month": 11,
+            "cash": -35950
+          },
+          {
+            "month": 12,
+            "cash": -39400
+          }
+        ],
+        "breakMonth": 1
+      },
+      {
+        "id": "realistic",
+        "name": "Realista",
+        "color": "#2563EB",
+        "leaderLoad": 100,
+        "systemicRisk": 97,
+        "failureProbability": 95,
+        "monthsToTension": 1,
+        "complexityAdded": 50,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 2000
+          },
+          {
+            "month": 1,
+            "cash": -1000
+          },
+          {
+            "month": 2,
+            "cash": -4000
+          },
+          {
+            "month": 3,
+            "cash": -7000
+          },
+          {
+            "month": 4,
+            "cash": -10000
+          },
+          {
+            "month": 5,
+            "cash": -13000
+          },
+          {
+            "month": 6,
+            "cash": -16000
+          },
+          {
+            "month": 7,
+            "cash": -19000
+          },
+          {
+            "month": 8,
+            "cash": -22000
+          },
+          {
+            "month": 9,
+            "cash": -25000
+          },
+          {
+            "month": 10,
+            "cash": -28000
+          },
+          {
+            "month": 11,
+            "cash": -31000
+          },
+          {
+            "month": 12,
+            "cash": -34000
+          }
+        ],
+        "breakMonth": 1
+      },
+      {
+        "id": "stress",
+        "name": "Estresse",
+        "color": "#E8590C",
+        "leaderLoad": 100,
+        "systemicRisk": 100,
+        "failureProbability": 95,
+        "monthsToTension": 1,
+        "complexityAdded": 70,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 2000
+          },
+          {
+            "month": 1,
+            "cash": -100
+          },
+          {
+            "month": 2,
+            "cash": -2200
+          },
+          {
+            "month": 3,
+            "cash": -4300
+          },
+          {
+            "month": 4,
+            "cash": -6400
+          },
+          {
+            "month": 5,
+            "cash": -8500
+          },
+          {
+            "month": 6,
+            "cash": -10600
+          },
+          {
+            "month": 7,
+            "cash": -12700
+          },
+          {
+            "month": 8,
+            "cash": -14800
+          },
+          {
+            "month": 9,
+            "cash": -16900
+          },
+          {
+            "month": 10,
+            "cash": -19000
+          },
+          {
+            "month": 11,
+            "cash": -21100
+          },
+          {
+            "month": 12,
+            "cash": -23200
+          }
+        ],
+        "breakMonth": 1
+      },
+      {
+        "id": "hfailure",
+        "name": "Falha Humana",
+        "color": "#E03131",
+        "leaderLoad": 100,
+        "systemicRisk": 100,
+        "failureProbability": 95,
+        "monthsToTension": 2,
+        "complexityAdded": 90,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 2000
+          },
+          {
+            "month": 1,
+            "cash": 800
+          },
+          {
+            "month": 2,
+            "cash": -400
+          },
+          {
+            "month": 3,
+            "cash": -1600
+          },
+          {
+            "month": 4,
+            "cash": -2800
+          },
+          {
+            "month": 5,
+            "cash": -4000
+          },
+          {
+            "month": 6,
+            "cash": -5200
+          },
+          {
+            "month": 7,
+            "cash": -6400
+          },
+          {
+            "month": 8,
+            "cash": -7600
+          },
+          {
+            "month": 9,
+            "cash": -8800
+          },
+          {
+            "month": 10,
+            "cash": -10000
+          },
+          {
+            "month": 11,
+            "cash": -11200
+          },
+          {
+            "month": 12,
+            "cash": -12400
+          }
+        ],
+        "breakMonth": 2
+      }
+    ],
+    "readinessPlan": {
+      "structuralReason": "Esta decisão existencial exige capacidade mínima de 85%. Seu score atual é 7%, gerando um gap de 78%. O sistema identifica incompatibilidade estrutural, não opinião.",
+      "primaryBottleneck": {
+        "domain": "relational",
+        "label": "Relacional",
+        "score": 0
+      },
+      "secondaryBottleneck": {
+        "domain": "operational",
+        "label": "Operacional",
+        "score": 8
+      },
+      "actions": [
+        {
+          "action": "Resolver conflito ativo mais crítico",
+          "horizon": "16–26 semanas",
+          "indicator": "Conflitos ativos ≤ 1"
+        },
+        {
+          "action": "Alinhar expectativas com parceiros-chave",
+          "horizon": "16–26 semanas",
+          "indicator": "Alinhamento > 65"
+        },
+        {
+          "action": "Reduzir frentes ativas simultâneas",
+          "horizon": "16–26 semanas",
+          "indicator": "Frentes ativas ≤ 3"
+        },
+        {
+          "action": "Aumentar maturidade de processos",
+          "horizon": "16–26 semanas",
+          "indicator": "Processos > 60"
+        },
+        {
+          "action": "Reduzir alavancagem para nível seguro",
+          "horizon": "16–26 semanas",
+          "indicator": "Alavancagem < 1.4x"
+        },
+        {
+          "action": "Estabilizar fluxo de caixa por 2 ciclos",
+          "horizon": "16–26 semanas",
+          "indicator": "2 meses positivos consecutivos"
+        }
+      ],
+      "reevaluationTriggers": [
+        "Score geral ≥ 85%",
+        "Relacional ≥ 70% (atual: 0%)",
+        "Operacional ≥ 70% (atual: 8%)"
+      ],
+      "timeline": "20–39 semanas"
+    },
+    "decisionType": {
+      "id": "existential",
+      "label": "Existencial",
+      "level": 1,
+      "minRequired": 85
+    },
+    "transitionWarning": null
+  },
+  "medium_strategic": {
+    "constitutionVersion": "0.4.0",
+    "verdict": "SIM",
+    "overallScore": 76,
+    "gap": 0,
+    "blocked": false,
+    "state": {
+      "id": "building",
+      "label": "Em Construção",
+      "severity": 3,
+      "color": "#6B9E3A",
+      "min": 40,
+      "max": 60
+    },
+    "stateConfidence": 0.68,
+    "layers": {
+      "human": {
+        "score": 51,
+        "pressureCapacity": 50,
+        "impulsivityRisk": 49
+      },
+      "business": {
+        "score": 75,
+        "margin": 60,
+        "complexity": 32
+      },
+      "financial": {
+        "score": 92,
+        "leverage": 0.02,
+        "intendedLeverage": 0.02,
+        "runway": 13.3,
+        "tensionProbability": 5
+      },
+      "relational": {
+        "score": 84,
+        "conflictRisk": 8
+      }
+    },
+    "domainScores": {
+      "financial": 92,
+      "emotional": 50,
+      "decisional": 52,
+      "operational": 75,
+      "relational": 84,
+      "energetic": 50
+    },
+    "domainDetails": [
+      {
+        "id": "financial",
+        "label": "Financeira",
+        "score": 92,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "emotional",
+        "label": "Emocional",
+        "score": 50,
+        "alertLevel": "preventive"
+      },
+      {
+        "id": "decisional",
+        "label": "Decisória",
+        "score": 52,
+        "alertLevel": "preventive"
+      },
+      {
+        "id": "operational",
+        "label": "Operacional",
+        "score": 75,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "relational",
+        "label": "Relacional",
+        "score": 84,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "energetic",
+        "label": "Energética",
+        "score": 50,
+        "alertLevel": "preventive"
+      }
+    ],
+    "violations": [],
+    "scenarios": [
+      {
+        "id": "optimistic",
+        "name": "Otimista",
+        "color": "#0B7A4C",
+        "leaderLoad": 34,
+        "systemicRisk": 13,
+        "failureProbability": 21,
+        "monthsToTension": 17,
+        "complexityAdded": 11,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 240250
+          },
+          {
+            "month": 2,
+            "cash": 280500
+          },
+          {
+            "month": 3,
+            "cash": 320750
+          },
+          {
+            "month": 4,
+            "cash": 361000
+          },
+          {
+            "month": 5,
+            "cash": 401250
+          },
+          {
+            "month": 6,
+            "cash": 441500
+          },
+          {
+            "month": 7,
+            "cash": 481750
+          },
+          {
+            "month": 8,
+            "cash": 522000
+          },
+          {
+            "month": 9,
+            "cash": 562250
+          },
+          {
+            "month": 10,
+            "cash": 602500
+          },
+          {
+            "month": 11,
+            "cash": 642750
+          },
+          {
+            "month": 12,
+            "cash": 683000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "realistic",
+        "name": "Realista",
+        "color": "#2563EB",
+        "leaderLoad": 49,
+        "systemicRisk": 18,
+        "failureProbability": 30,
+        "monthsToTension": 12,
+        "complexityAdded": 16,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 235000
+          },
+          {
+            "month": 2,
+            "cash": 270000
+          },
+          {
+            "month": 3,
+            "cash": 305000
+          },
+          {
+            "month": 4,
+            "cash": 340000
+          },
+          {
+            "month": 5,
+            "cash": 375000
+          },
+          {
+            "month": 6,
+            "cash": 410000
+          },
+          {
+            "month": 7,
+            "cash": 445000
+          },
+          {
+            "month": 8,
+            "cash": 480000
+          },
+          {
+            "month": 9,
+            "cash": 515000
+          },
+          {
+            "month": 10,
+            "cash": 550000
+          },
+          {
+            "month": 11,
+            "cash": 585000
+          },
+          {
+            "month": 12,
+            "cash": 620000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "stress",
+        "name": "Estresse",
+        "color": "#E8590C",
+        "leaderLoad": 69,
+        "systemicRisk": 25,
+        "failureProbability": 43,
+        "monthsToTension": 9,
+        "complexityAdded": 22,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 224500
+          },
+          {
+            "month": 2,
+            "cash": 249000
+          },
+          {
+            "month": 3,
+            "cash": 273500
+          },
+          {
+            "month": 4,
+            "cash": 298000
+          },
+          {
+            "month": 5,
+            "cash": 322500
+          },
+          {
+            "month": 6,
+            "cash": 347000
+          },
+          {
+            "month": 7,
+            "cash": 371500
+          },
+          {
+            "month": 8,
+            "cash": 396000
+          },
+          {
+            "month": 9,
+            "cash": 420500
+          },
+          {
+            "month": 10,
+            "cash": 445000
+          },
+          {
+            "month": 11,
+            "cash": 469500
+          },
+          {
+            "month": 12,
+            "cash": 494000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "hfailure",
+        "name": "Falha Humana",
+        "color": "#E03131",
+        "leaderLoad": 88,
+        "systemicRisk": 32,
+        "failureProbability": 54,
+        "monthsToTension": 7,
+        "complexityAdded": 29,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 214000
+          },
+          {
+            "month": 2,
+            "cash": 228000
+          },
+          {
+            "month": 3,
+            "cash": 242000
+          },
+          {
+            "month": 4,
+            "cash": 256000
+          },
+          {
+            "month": 5,
+            "cash": 270000
+          },
+          {
+            "month": 6,
+            "cash": 284000
+          },
+          {
+            "month": 7,
+            "cash": 298000
+          },
+          {
+            "month": 8,
+            "cash": 312000
+          },
+          {
+            "month": 9,
+            "cash": 326000
+          },
+          {
+            "month": 10,
+            "cash": 340000
+          },
+          {
+            "month": 11,
+            "cash": 354000
+          },
+          {
+            "month": 12,
+            "cash": 368000
+          }
+        ],
+        "breakMonth": -1
+      }
+    ],
+    "readinessPlan": null,
+    "decisionType": {
+      "id": "strategic",
+      "label": "Estratégica",
+      "level": 3,
+      "minRequired": 55
+    },
+    "transitionWarning": null
+  },
+  "edge_zero_revenue": {
+    "constitutionVersion": "0.4.0",
+    "verdict": "SIM",
+    "overallScore": 63,
+    "gap": 0,
+    "blocked": false,
+    "state": {
+      "id": "controlled_expansion",
+      "label": "Expansão Controlada",
+      "severity": 1,
+      "color": "#0B7A4C",
+      "min": 76,
+      "max": 100
+    },
+    "stateConfidence": 0.6,
+    "layers": {
+      "human": {
+        "score": 81,
+        "pressureCapacity": 80,
+        "impulsivityRisk": 19
+      },
+      "business": {
+        "score": 60,
+        "margin": 0,
+        "complexity": 32
+      },
+      "financial": {
+        "score": 25,
+        "leverage": 10000,
+        "intendedLeverage": 10000,
+        "runway": 99,
+        "tensionProbability": 95
+      },
+      "relational": {
+        "score": 84,
+        "conflictRisk": 8
+      }
+    },
+    "domainScores": {
+      "financial": 25,
+      "emotional": 80,
+      "decisional": 82,
+      "operational": 60,
+      "relational": 84,
+      "energetic": 80
+    },
+    "domainDetails": [
+      {
+        "id": "financial",
+        "label": "Financeira",
+        "score": 25,
+        "alertLevel": "attention"
+      },
+      {
+        "id": "emotional",
+        "label": "Emocional",
+        "score": 80,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "decisional",
+        "label": "Decisória",
+        "score": 82,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "operational",
+        "label": "Operacional",
+        "score": 60,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "relational",
+        "label": "Relacional",
+        "score": 84,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "energetic",
+        "label": "Energética",
+        "score": 80,
+        "alertLevel": "ok"
+      }
+    ],
+    "violations": [],
+    "scenarios": [
+      {
+        "id": "optimistic",
+        "name": "Otimista",
+        "color": "#0B7A4C",
+        "leaderLoad": 13,
+        "systemicRisk": 27,
+        "failureProbability": 21,
+        "monthsToTension": 17,
+        "complexityAdded": 11,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 0
+          },
+          {
+            "month": 1,
+            "cash": 0
+          },
+          {
+            "month": 2,
+            "cash": 0
+          },
+          {
+            "month": 3,
+            "cash": 0
+          },
+          {
+            "month": 4,
+            "cash": 0
+          },
+          {
+            "month": 5,
+            "cash": 0
+          },
+          {
+            "month": 6,
+            "cash": 0
+          },
+          {
+            "month": 7,
+            "cash": 0
+          },
+          {
+            "month": 8,
+            "cash": 0
+          },
+          {
+            "month": 9,
+            "cash": 0
+          },
+          {
+            "month": 10,
+            "cash": 0
+          },
+          {
+            "month": 11,
+            "cash": 0
+          },
+          {
+            "month": 12,
+            "cash": 0
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "realistic",
+        "name": "Realista",
+        "color": "#2563EB",
+        "leaderLoad": 19,
+        "systemicRisk": 38,
+        "failureProbability": 30,
+        "monthsToTension": 12,
+        "complexityAdded": 16,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 0
+          },
+          {
+            "month": 1,
+            "cash": 0
+          },
+          {
+            "month": 2,
+            "cash": 0
+          },
+          {
+            "month": 3,
+            "cash": 0
+          },
+          {
+            "month": 4,
+            "cash": 0
+          },
+          {
+            "month": 5,
+            "cash": 0
+          },
+          {
+            "month": 6,
+            "cash": 0
+          },
+          {
+            "month": 7,
+            "cash": 0
+          },
+          {
+            "month": 8,
+            "cash": 0
+          },
+          {
+            "month": 9,
+            "cash": 0
+          },
+          {
+            "month": 10,
+            "cash": 0
+          },
+          {
+            "month": 11,
+            "cash": 0
+          },
+          {
+            "month": 12,
+            "cash": 0
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "stress",
+        "name": "Estresse",
+        "color": "#E8590C",
+        "leaderLoad": 27,
+        "systemicRisk": 53,
+        "failureProbability": 43,
+        "monthsToTension": 9,
+        "complexityAdded": 22,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 0
+          },
+          {
+            "month": 1,
+            "cash": 0
+          },
+          {
+            "month": 2,
+            "cash": 0
+          },
+          {
+            "month": 3,
+            "cash": 0
+          },
+          {
+            "month": 4,
+            "cash": 0
+          },
+          {
+            "month": 5,
+            "cash": 0
+          },
+          {
+            "month": 6,
+            "cash": 0
+          },
+          {
+            "month": 7,
+            "cash": 0
+          },
+          {
+            "month": 8,
+            "cash": 0
+          },
+          {
+            "month": 9,
+            "cash": 0
+          },
+          {
+            "month": 10,
+            "cash": 0
+          },
+          {
+            "month": 11,
+            "cash": 0
+          },
+          {
+            "month": 12,
+            "cash": 0
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "hfailure",
+        "name": "Falha Humana",
+        "color": "#E03131",
+        "leaderLoad": 34,
+        "systemicRisk": 68,
+        "failureProbability": 54,
+        "monthsToTension": 7,
+        "complexityAdded": 29,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 0
+          },
+          {
+            "month": 1,
+            "cash": 0
+          },
+          {
+            "month": 2,
+            "cash": 0
+          },
+          {
+            "month": 3,
+            "cash": 0
+          },
+          {
+            "month": 4,
+            "cash": 0
+          },
+          {
+            "month": 5,
+            "cash": 0
+          },
+          {
+            "month": 6,
+            "cash": 0
+          },
+          {
+            "month": 7,
+            "cash": 0
+          },
+          {
+            "month": 8,
+            "cash": 0
+          },
+          {
+            "month": 9,
+            "cash": 0
+          },
+          {
+            "month": 10,
+            "cash": 0
+          },
+          {
+            "month": 11,
+            "cash": 0
+          },
+          {
+            "month": 12,
+            "cash": 0
+          }
+        ],
+        "breakMonth": -1
+      }
+    ],
+    "readinessPlan": null,
+    "decisionType": {
+      "id": "tactical",
+      "label": "Tática",
+      "level": 4,
+      "minRequired": 35
+    },
+    "transitionWarning": null
+  },
+  "edge_max_conflicts": {
+    "constitutionVersion": "0.4.0",
+    "verdict": "NÃO AGORA",
+    "overallScore": 62,
+    "gap": 0,
+    "blocked": true,
+    "state": {
+      "id": "controlled_expansion",
+      "label": "Expansão Controlada",
+      "severity": 1,
+      "color": "#0B7A4C",
+      "min": 76,
+      "max": 100
+    },
+    "stateConfidence": 0.6,
+    "layers": {
+      "human": {
+        "score": 81,
+        "pressureCapacity": 80,
+        "impulsivityRisk": 19
+      },
+      "business": {
+        "score": 75,
+        "margin": 60,
+        "complexity": 32
+      },
+      "financial": {
+        "score": 92,
+        "leverage": 0.02,
+        "intendedLeverage": 0.02,
+        "runway": 13.3,
+        "tensionProbability": 5
+      },
+      "relational": {
+        "score": 0,
+        "conflictRisk": 100
+      }
+    },
+    "domainScores": {
+      "financial": 92,
+      "emotional": 80,
+      "decisional": 82,
+      "operational": 75,
+      "relational": 0,
+      "energetic": 80
+    },
+    "domainDetails": [
+      {
+        "id": "financial",
+        "label": "Financeira",
+        "score": 92,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "emotional",
+        "label": "Emocional",
+        "score": 80,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "decisional",
+        "label": "Decisória",
+        "score": 82,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "operational",
+        "label": "Operacional",
+        "score": 75,
+        "alertLevel": "ok"
+      },
+      {
+        "id": "relational",
+        "label": "Relacional",
+        "score": 0,
+        "alertLevel": "critical"
+      },
+      {
+        "id": "energetic",
+        "label": "Energética",
+        "score": 80,
+        "alertLevel": "ok"
+      }
+    ],
+    "violations": [
+      {
+        "domain": "relational",
+        "label": "Relacional",
+        "score": 0,
+        "required": 25,
+        "level": "critical"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "optimistic",
+        "name": "Otimista",
+        "color": "#0B7A4C",
+        "leaderLoad": 13,
+        "systemicRisk": 31,
+        "failureProbability": 24,
+        "monthsToTension": 17,
+        "complexityAdded": 11,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 240250
+          },
+          {
+            "month": 2,
+            "cash": 280500
+          },
+          {
+            "month": 3,
+            "cash": 320750
+          },
+          {
+            "month": 4,
+            "cash": 361000
+          },
+          {
+            "month": 5,
+            "cash": 401250
+          },
+          {
+            "month": 6,
+            "cash": 441500
+          },
+          {
+            "month": 7,
+            "cash": 481750
+          },
+          {
+            "month": 8,
+            "cash": 522000
+          },
+          {
+            "month": 9,
+            "cash": 562250
+          },
+          {
+            "month": 10,
+            "cash": 602500
+          },
+          {
+            "month": 11,
+            "cash": 642750
+          },
+          {
+            "month": 12,
+            "cash": 683000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "realistic",
+        "name": "Realista",
+        "color": "#2563EB",
+        "leaderLoad": 19,
+        "systemicRisk": 45,
+        "failureProbability": 35,
+        "monthsToTension": 12,
+        "complexityAdded": 16,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 235000
+          },
+          {
+            "month": 2,
+            "cash": 270000
+          },
+          {
+            "month": 3,
+            "cash": 305000
+          },
+          {
+            "month": 4,
+            "cash": 340000
+          },
+          {
+            "month": 5,
+            "cash": 375000
+          },
+          {
+            "month": 6,
+            "cash": 410000
+          },
+          {
+            "month": 7,
+            "cash": 445000
+          },
+          {
+            "month": 8,
+            "cash": 480000
+          },
+          {
+            "month": 9,
+            "cash": 515000
+          },
+          {
+            "month": 10,
+            "cash": 550000
+          },
+          {
+            "month": 11,
+            "cash": 585000
+          },
+          {
+            "month": 12,
+            "cash": 620000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "stress",
+        "name": "Estresse",
+        "color": "#E8590C",
+        "leaderLoad": 27,
+        "systemicRisk": 63,
+        "failureProbability": 49,
+        "monthsToTension": 9,
+        "complexityAdded": 22,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 224500
+          },
+          {
+            "month": 2,
+            "cash": 249000
+          },
+          {
+            "month": 3,
+            "cash": 273500
+          },
+          {
+            "month": 4,
+            "cash": 298000
+          },
+          {
+            "month": 5,
+            "cash": 322500
+          },
+          {
+            "month": 6,
+            "cash": 347000
+          },
+          {
+            "month": 7,
+            "cash": 371500
+          },
+          {
+            "month": 8,
+            "cash": 396000
+          },
+          {
+            "month": 9,
+            "cash": 420500
+          },
+          {
+            "month": 10,
+            "cash": 445000
+          },
+          {
+            "month": 11,
+            "cash": 469500
+          },
+          {
+            "month": 12,
+            "cash": 494000
+          }
+        ],
+        "breakMonth": -1
+      },
+      {
+        "id": "hfailure",
+        "name": "Falha Humana",
+        "color": "#E03131",
+        "leaderLoad": 34,
+        "systemicRisk": 81,
+        "failureProbability": 62,
+        "monthsToTension": 7,
+        "complexityAdded": 29,
+        "cashProjection": [
+          {
+            "month": 0,
+            "cash": 200000
+          },
+          {
+            "month": 1,
+            "cash": 214000
+          },
+          {
+            "month": 2,
+            "cash": 228000
+          },
+          {
+            "month": 3,
+            "cash": 242000
+          },
+          {
+            "month": 4,
+            "cash": 256000
+          },
+          {
+            "month": 5,
+            "cash": 270000
+          },
+          {
+            "month": 6,
+            "cash": 284000
+          },
+          {
+            "month": 7,
+            "cash": 298000
+          },
+          {
+            "month": 8,
+            "cash": 312000
+          },
+          {
+            "month": 9,
+            "cash": 326000
+          },
+          {
+            "month": 10,
+            "cash": 340000
+          },
+          {
+            "month": 11,
+            "cash": 354000
+          },
+          {
+            "month": 12,
+            "cash": 368000
+          }
+        ],
+        "breakMonth": -1
+      }
+    ],
+    "readinessPlan": {
+      "structuralReason": "Esta decisão tática exige capacidade mínima de 35%. Seu score atual é 62%, gerando um gap de 0%. O sistema identifica incompatibilidade estrutural, não opinião.",
+      "primaryBottleneck": {
+        "domain": "relational",
+        "label": "Relacional",
+        "score": 0
+      },
+      "secondaryBottleneck": {
+        "domain": "operational",
+        "label": "Operacional",
+        "score": 75
+      },
+      "actions": [
+        {
+          "action": "Resolver conflito ativo mais crítico",
+          "horizon": "2–4 semanas",
+          "indicator": "Conflitos ativos ≤ 1"
+        },
+        {
+          "action": "Alinhar expectativas com parceiros-chave",
+          "horizon": "2–4 semanas",
+          "indicator": "Alinhamento > 65"
+        },
+        {
+          "action": "Fortalecer capacidade geral antes de avançar",
+          "horizon": "4–8 semanas",
+          "indicator": "Score geral ≥ 35%"
+        }
+      ],
+      "reevaluationTriggers": [
+        "Score geral ≥ 35%",
+        "Relacional ≥ 25% (atual: 0%)"
+      ],
+      "timeline": "2–4 semanas"
+    },
+    "decisionType": {
+      "id": "tactical",
+      "label": "Tática",
+      "level": 4,
+      "minRequired": 35
+    },
+    "transitionWarning": null
+  }
+}

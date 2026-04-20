@@ -1,0 +1,42 @@
+[
+  {
+    "name": "strong_tactical",
+    "assessment":  { "energy": 80, "clarity": 85, "stress": 20, "confidence": 80, "load": 20 },
+    "business":    { "revenue": 50000, "costs": 20000, "founderDependence": 20, "activeFronts": 2, "processMaturity": 80, "delegationCapacity": 75 },
+    "financial":   { "revenue": 50000, "cash": 200000, "debt": 10000, "fixedCosts": 15000, "intendedLeverage": 0 },
+    "relational":  { "activeConflicts": 0, "criticalDependencies": 1, "partnerAlignment": 85, "teamStability": 90, "ecosystemHealth": 80 },
+    "decision":    { "description": "Tactical decision", "type": "tactical", "impact": "low", "reversibility": "easy", "urgency": "low", "resourcesRequired": "minimal" }
+  },
+  {
+    "name": "weak_existential",
+    "assessment":  { "energy": 15, "clarity": 10, "stress": 90, "confidence": 10, "load": 95 },
+    "business":    { "revenue": 5000, "costs": 8000, "founderDependence": 90, "activeFronts": 8, "processMaturity": 10, "delegationCapacity": 10 },
+    "financial":   { "revenue": 5000, "cash": 2000, "debt": 100000, "fixedCosts": 8000, "intendedLeverage": 50000 },
+    "relational":  { "activeConflicts": 8, "criticalDependencies": 7, "partnerAlignment": 15, "teamStability": 10, "ecosystemHealth": 10 },
+    "decision":    { "description": "Existential pivot", "type": "existential", "impact": "transformational", "reversibility": "irreversible", "urgency": "high", "resourcesRequired": "massive" }
+  },
+  {
+    "name": "medium_strategic",
+    "assessment":  { "energy": 50, "clarity": 55, "stress": 50, "confidence": 50, "load": 50 },
+    "business":    { "revenue": 50000, "costs": 20000, "founderDependence": 20, "activeFronts": 2, "processMaturity": 80, "delegationCapacity": 75 },
+    "financial":   { "revenue": 50000, "cash": 200000, "debt": 10000, "fixedCosts": 15000, "intendedLeverage": 0 },
+    "relational":  { "activeConflicts": 0, "criticalDependencies": 1, "partnerAlignment": 85, "teamStability": 90, "ecosystemHealth": 80 },
+    "decision":    { "description": "Strategic expansion", "type": "strategic", "impact": "high", "reversibility": "difficult", "urgency": "moderate", "resourcesRequired": "significant" }
+  },
+  {
+    "name": "edge_zero_revenue",
+    "assessment":  { "energy": 80, "clarity": 85, "stress": 20, "confidence": 80, "load": 20 },
+    "business":    { "revenue": 0, "costs": 0, "founderDependence": 20, "activeFronts": 2, "processMaturity": 80, "delegationCapacity": 75 },
+    "financial":   { "revenue": 0, "cash": 0, "debt": 10000, "fixedCosts": 0, "intendedLeverage": 0 },
+    "relational":  { "activeConflicts": 0, "criticalDependencies": 1, "partnerAlignment": 85, "teamStability": 90, "ecosystemHealth": 80 },
+    "decision":    { "description": "Edge case zero revenue", "type": "tactical", "impact": "low", "reversibility": "easy", "urgency": "low", "resourcesRequired": "minimal" }
+  },
+  {
+    "name": "edge_max_conflicts",
+    "assessment":  { "energy": 80, "clarity": 85, "stress": 20, "confidence": 80, "load": 20 },
+    "business":    { "revenue": 50000, "costs": 20000, "founderDependence": 20, "activeFronts": 2, "processMaturity": 80, "delegationCapacity": 75 },
+    "financial":   { "revenue": 50000, "cash": 200000, "debt": 10000, "fixedCosts": 15000, "intendedLeverage": 0 },
+    "relational":  { "activeConflicts": 10, "criticalDependencies": 10, "partnerAlignment": 0, "teamStability": 0, "ecosystemHealth": 0 },
+    "decision":    { "description": "Edge case max conflicts", "type": "tactical", "impact": "low", "reversibility": "easy", "urgency": "low", "resourcesRequired": "minimal" }
+  }
+]

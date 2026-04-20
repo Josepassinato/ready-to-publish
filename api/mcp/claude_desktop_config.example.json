@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy the 'lifeos' block into your Claude Desktop config. Location: ~/Library/Application Support/Claude/claude_desktop_config.json (macOS), %APPDATA%\\Claude\\claude_desktop_config.json (Windows), ~/.config/Claude/claude_desktop_config.json (Linux). Get an API key at https://lifeos.12brain.org/settings/keys — the Bearer token starts with lo_sk_",
+  "mcpServers": {
+    "lifeos": {
+      "url": "https://lifeos.12brain.org/mcp/",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer lo_sk_YOUR_KEY_HERE"
+      }
+    }
+  }
+}
