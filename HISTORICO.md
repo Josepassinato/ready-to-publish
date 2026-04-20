@@ -46,10 +46,18 @@ Governo de Decisão. Protocolo Luz & Vaso, Constituição Artigos I-VII.
 - 🐛 `RegisterReq.email` (Pydantic EmailStr) rejeita domínios reservados como `.local`/`.test` — usar `example.com` em fixtures futuros.
 - ⚠️ `POST /api/decisions` retorna 500 com `state_severity: "normal"` (texto) mas schema é `smallint`. Sem validação Pydantic no endpoint — `data: dict` passa direto. **Candidato Wave 5**: trocar `data: dict` por `DecisionCreate` BaseModel.
 
+**Wave 5 — Pydantic em `POST /api/decisions`**:
+- ✅ Criado `DecisionCreate` BaseModel (api/main.py:253) com tipagem forte e `Field(ge=0, le=100)` nos 12 scores (`overall_score`, `state_severity`, `human_score`, `business_score`, `financial_score`, `relational_score`, 6 `domain_*`).
+- ✅ `decision_type` agora usa `DecisionTypeLiteral` importado do `governance_engine.py` — Pydantic rejeita valores fora de `existential|structural|strategic|tactical`.
+- ✅ Endpoint trocado de `data: dict` → `data: DecisionCreate`; `data.get(k, default)` → `data.k`. Defaults preservados (backward compat).
+- ✅ Criado `api/tests/test_decision_validation.py` — 4 casos 422 (`state_severity="normal"`, `overall_score=250`, `human_score=-1`, `decision_type="random"`) + happy path. Suite: **62/62**.
+- ✅ Bug original reproduzido → confirmado 422 ao invés de 500 (antes: `state_severity="normal"` vazava até asyncpg → `DataError`).
+- API reloadada via `pm2 restart lifeos-api`, online, smoke 401 OK.
+
 **Pendente**:
 - [ ] Wave 3: `update_user_memory()` automático com hook pós-chat (decisão de produto: quando extrair fatos? custo de tokens Grok).
 - [ ] Decisão sobre CASCADE em `user_memory`/`chat_messages`.
-- [ ] Wave 5 sugerida: endpoints recebendo `dict` cru → Pydantic models.
+- [ ] Continuar Wave 5 em outros endpoints com `data: dict` cru (varrer o main.py e aplicar pattern).
 - [ ] Criar `.planning/SESSION-NOTES.md` (Regra 4 do 12Brain) — este HISTORICO.md o substitui por enquanto.
 
 **Estado Integrações**:

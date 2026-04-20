@@ -17,8 +17,10 @@ import asyncpg
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+
+from api.governance_engine import DecisionTypeLiteral
 
 # ─── Config ──────────────────────────────────────────────────
 
@@ -250,8 +252,33 @@ async def list_decisions(user_id: str = Depends(get_current_user)):
         )
     return [dict(r) for r in rows]
 
+class DecisionCreate(BaseModel):
+    description: str = ""
+    decision_type: DecisionTypeLiteral = "tactical"
+    impact: str = "medium"
+    reversibility: str = "moderate"
+    urgency: str = "moderate"
+    resources_required: Optional[str] = None
+    verdict: str = "NÃO AGORA"
+    overall_score: int = Field(default=0, ge=0, le=100)
+    blocked: bool = False
+    state_id: str = "building"
+    state_severity: int = Field(default=50, ge=0, le=100)
+    human_score: Optional[int] = Field(default=None, ge=0, le=100)
+    business_score: Optional[int] = Field(default=None, ge=0, le=100)
+    financial_score: Optional[int] = Field(default=None, ge=0, le=100)
+    relational_score: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_financial: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_emotional: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_decisional: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_operational: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_relational: Optional[int] = Field(default=None, ge=0, le=100)
+    domain_energetic: Optional[int] = Field(default=None, ge=0, le=100)
+    full_result: dict = Field(default_factory=dict)
+    guidance_text: Optional[str] = None
+
 @app.post("/api/decisions")
-async def create_decision(data: dict, user_id: str = Depends(get_current_user)):
+async def create_decision(data: DecisionCreate, user_id: str = Depends(get_current_user)):
     uid = uuid.UUID(user_id)
     did = uuid.uuid4()
     pid = f"pipe_{did.hex[:12]}"
@@ -260,29 +287,29 @@ async def create_decision(data: dict, user_id: str = Depends(get_current_user)):
             """INSERT INTO decisions (id, user_id, pipeline_id, description, decision_type, impact, reversibility, urgency, resources_required, verdict, overall_score, blocked, state_id, state_severity, human_score, business_score, financial_score, relational_score, domain_financial, domain_emotional, domain_decisional, domain_operational, domain_relational, domain_energetic, full_result, guidance_text)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)""",
             did, uid, pid,
-            data.get("description", ""),
-            data.get("decision_type", "tactical"),
-            data.get("impact", "medium"),
-            data.get("reversibility", "moderate"),
-            data.get("urgency", "moderate"),
-            data.get("resources_required"),
-            data.get("verdict", "NÃO AGORA"),
-            data.get("overall_score", 0),
-            data.get("blocked", False),
-            data.get("state_id", "building"),
-            data.get("state_severity", 50),
-            data.get("human_score"),
-            data.get("business_score"),
-            data.get("financial_score"),
-            data.get("relational_score"),
-            data.get("domain_financial"),
-            data.get("domain_emotional"),
-            data.get("domain_decisional"),
-            data.get("domain_operational"),
-            data.get("domain_relational"),
-            data.get("domain_energetic"),
-            json.dumps(data.get("full_result", {})),
-            data.get("guidance_text")
+            data.description,
+            data.decision_type,
+            data.impact,
+            data.reversibility,
+            data.urgency,
+            data.resources_required,
+            data.verdict,
+            data.overall_score,
+            data.blocked,
+            data.state_id,
+            data.state_severity,
+            data.human_score,
+            data.business_score,
+            data.financial_score,
+            data.relational_score,
+            data.domain_financial,
+            data.domain_emotional,
+            data.domain_decisional,
+            data.domain_operational,
+            data.domain_relational,
+            data.domain_energetic,
+            json.dumps(data.full_result),
+            data.guidance_text,
         )
     return {"id": str(did), "pipeline_id": pid}
 
