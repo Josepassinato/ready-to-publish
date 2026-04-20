@@ -34,10 +34,22 @@ Governo de Decisão. Protocolo Luz & Vaso, Constituição Artigos I-VII.
 - ✅ `public_api.py` (Bearer API) usa `auth["user_id"]` consistentemente nas 30 refs.
 - ⚠️ **GAP**: `fn_proxy` (`/api/fn/channel-status`, linha 743) retorna hardcode `{"telegram": {"connected": False}, "whatsapp": {"connected": False}}` — deveria consultar `telegram_users`/`whatsapp_users` recém-criadas.
 
+**Wave 2 fix aplicado** (commit `d1817d2`):
+- ✅ `channel-status` agora consulta `telegram_users`/`whatsapp_users`, retorna `connected` + identificador + `linked_at`. E2E testado manualmente (before/after link).
+
+**Wave 4 — teste E2E de isolamento** (commit pendente desta sessão):
+- ✅ `api/tests/test_isolation.py` — cria User A + User B, insere decisions/memory/canal linking pra cada, verifica via `/api/decisions`, `/api/memory`, `/api/db/decisions`, `/api/fn/channel-status` que **nenhum user vê dados do outro**. Também valida 401 sem token e 401 com JWT inválido.
+- ✅ PASSOU. Suite total: 61/61 testes.
+
+**Achados novos** (durante Wave 4):
+- 🐛 **FKs sem CASCADE**: `user_memory_user_id_fkey` e `chat_messages_user_id_fkey` têm `ON DELETE NO ACTION` — inconsistente com as outras 6 FKs de `user_id → profiles(id)` que são CASCADE. Impede `DELETE FROM users` atômico. Por ora o teste limpa manualmente na ordem. **Decisão pendente**: corrigir pra CASCADE ou manter pra preservar histórico conversacional?
+- 🐛 `RegisterReq.email` (Pydantic EmailStr) rejeita domínios reservados como `.local`/`.test` — usar `example.com` em fixtures futuros.
+- ⚠️ `POST /api/decisions` retorna 500 com `state_severity: "normal"` (texto) mas schema é `smallint`. Sem validação Pydantic no endpoint — `data: dict` passa direto. **Candidato Wave 5**: trocar `data: dict` por `DecisionCreate` BaseModel.
+
 **Pendente**:
-- [ ] Wave 2 mini-fix: `channel-status` consultar tabelas reais de canal.
-- [ ] Wave 3: `update_user_memory()` automático com hook pós-chat.
-- [ ] Wave 4: teste E2E isolamento entre 2 users.
+- [ ] Wave 3: `update_user_memory()` automático com hook pós-chat (decisão de produto: quando extrair fatos? custo de tokens Grok).
+- [ ] Decisão sobre CASCADE em `user_memory`/`chat_messages`.
+- [ ] Wave 5 sugerida: endpoints recebendo `dict` cru → Pydantic models.
 - [ ] Criar `.planning/SESSION-NOTES.md` (Regra 4 do 12Brain) — este HISTORICO.md o substitui por enquanto.
 
 **Estado Integrações**:
