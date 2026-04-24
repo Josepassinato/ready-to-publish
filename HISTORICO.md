@@ -244,3 +244,86 @@ D: adiar). José prefere…?
 5. Conflito: overwrite ou anotar contradição?
 6. Opt-in ou opt-out default?
 7. Auto silencioso ou "LifeOS quer lembrar X, confirma?"
+
+### 2026-04-24 (terceira continuação) — /remember MVP + refactor 5 arquivos Supabase
+
+**Objetivo**: executar o que restou das 4 pendências com escopo unilateral, sem
+travar em decisões de produto que o José explicitamente delegou ("nao sei te
+responder").
+
+**Estratégia negociada**: para #3 Supabase legado fazer apenas os 5 arquivos
+triviais (opção A) porque 5 arquivos precisam de endpoints novos que são
+refactor de maior risco. Para #2 Wave 3 fazer MVP manual `/remember` que
+resolve 6 das 7 decisões de produto com defaults razoáveis.
+
+**Feito** (commit `d8d52b2`):
+
+- **NOVO `src/lib/api.ts`** — helpers genéricos `apiGet/apiPost/apiPut` que
+  adicionam `Authorization: Bearer <JWT>` automaticamente a partir de `getToken()`.
+  Usado por todos os refactors abaixo.
+
+- **#3-A (5 arquivos triviais refatorados)**:
+  - `src/hooks/useOnboardingCheck.ts`: `supabase.from("profiles").select("onboarding_completed")`
+    → `apiGet<{onboarding_completed?: boolean}>("/api/profile")`.
+  - `src/pages/Dashboard.tsx`: 2 `from()` + 1 `rpc` em `Promise.all`
+    → `/api/decisions` (slice client-side para 5) + `/api/db/readiness_plans?status=active`
+    + `/api/rpc/get_capacity_trend`.
+  - `src/pages/Evolution.tsx`: rpc + from → `/api/rpc/get_capacity_trend`
+    + `/api/decisions` (filter de verdict client-side).
+  - `src/pages/History.tsx`: from com filter server-side → `/api/decisions`
+    + filter client (aceitável: até 50 rows por user).
+  - `src/lib/memory.ts`: 3 funções (`getUserMemoryContext`, `saveChatMessages`,
+    `upsertMemory`) reescritas via `/api/db/user_memory` (upsert automático via
+    db_proxy `ON CONFLICT`) e `/api/db/chat_messages`.
+  - Nenhum dos 5 importa mais `@/integrations/supabase/client`.
+
+- **#2 MVP `/remember`**:
+  - Backend `POST /api/memory/remember` (api/main.py +99):
+    - Recebe `{text: str}`, chama Grok-3-fast em JSON mode com prompt estruturado
+      que pede `{category, key, value}` válido + categorias permitidas.
+    - Upsert em `user_memory` via `ON CONFLICT (user_id, category, key) DO UPDATE`.
+    - Se Grok retorna nulls (texto não é fato salvável), responde `saved: false`.
+    - Validação: categoria contra `ALLOWED_IMPORT_CATEGORIES`, texto não-vazio.
+  - Frontend `src/pages/Chat.tsx`:
+    - Detecta mensagem que começa com `/remember ` (ou `/remember` sozinho)
+      ANTES do streaming normal do Grok.
+    - Chama o novo endpoint, exibe reply "Salvo na memória. **cat → key**: value"
+      ou "Não salvei — <motivo>". Atualiza `memoryContext` para Grok ver o fato
+      no próximo turn.
+
+**Decisões de Wave 3 tomadas pelo MVP**:
+| Decisão | Escolha |
+|---|---|
+| Quando extrair? | Só via comando `/remember` explícito |
+| Qual LLM? | Grok-3-fast JSON mode |
+| Custo | User-controlled, ~$0.001/call |
+| Dedupe | Upsert (overwrite silencioso) |
+| Conflito | Overwrite |
+| Opt-in/out | Opt-in manual via comando |
+| Auto vs confirmar | Feedback visual após salvar |
+
+**Validação**:
+- Build verde. `Chat-j02pRdeV.js` + novos bundles.
+- pytest 66/66 sandbox, 60/60 subset produção pós-deploy.
+
+**Deploy** (commit `d8d52b2`):
+- rsync sandbox `lifeos_20260424_1513` → `/var/www/lifeos/` (exclusões padrão).
+- `dist/` copiado pós-build.
+- `pm2 restart lifeos-api` clean.
+- Smoke: `/api/health` 200, `/chat` 200, `/connect-gpt` 200,
+  `POST /api/memory/remember` sem auth → 401 (esperado).
+
+**Pendente depois desta sessão**:
+
+Refactor Supabase legado — 7 arquivos restantes (prioridade baixa, funciona hoje):
+- `Plans.tsx` → precisa `GET /api/plans` (ou whitelist `readiness_plans` no GET do db_proxy — já whitelisted, só falta usar)
+- `DecisionVerdict.tsx` → precisa `GET /api/decisions/:id` novo
+- `lib/supabase-utils.ts` → 3 INSERTs; `decisions` tem `/api/decisions` POST, `readiness_plans` e `state_classifications` precisam via db_proxy POST (whitelist já ok)
+- `lib/audit-logger.ts` → `governance_audit_log` INSERT via db_proxy (whitelist ok)
+- `lib/feature-flags.ts` → 4 ops em `feature_flags` — ainda não whitelisted no db_proxy
+- `Channels.tsx` → remover `telegram-webhook` inline (é callback externo, não é frontend)
+- `Onboarding.tsx` → `user_memory INSERT` já resolvido via `/api/memory/import` (testar); `profiles UPDATE` via `/api/profile` PUT
+
+Wave 3 automação (se MVP manual não bastar):
+- Avaliar hook pós-chat que chama `/api/memory/remember` automaticamente em
+  trechos marcados pelo Grok com `[[remember: ...]]`.
