@@ -265,10 +265,20 @@ def compute_domain_scores(
 
 # ── MODULE 4: THRESHOLD & BLOCK (Art. III) ────────────────────────
 
+def _get_type_config(decision_type: str) -> dict:
+    for t in DECISION_TYPES:
+        if t["id"] == decision_type:
+            return t
+    raise ValueError(
+        f"decision_type {decision_type!r} not in DECISION_TYPES. "
+        "DecisionTypeLiteral should block this at the boundary."
+    )
+
+
 def check_thresholds(
     domain_scores: dict, decision_type: str, state_info: dict
 ) -> dict:
-    type_config = next((t for t in DECISION_TYPES if t["id"] == decision_type), DECISION_TYPES[2])
+    type_config = _get_type_config(decision_type)
     violations: list[dict] = []
 
     for domain in DOMAINS:
@@ -396,7 +406,7 @@ def generate_readiness_plan(
     domain_scores: dict, violations: list, decision_type: str,
     overall_score: int, gap: int,
 ) -> dict:
-    type_config = next((t for t in DECISION_TYPES if t["id"] == decision_type), DECISION_TYPES[2])
+    type_config = _get_type_config(decision_type)
 
     sorted_domains = sorted(
         [{**d, "score": domain_scores[d["id"]]} for d in DOMAINS],
@@ -488,7 +498,7 @@ def govern(
     domain_scores = compute_domain_scores(human, biz, fin, rel, assessment)
 
     # Step 4: Decision Type
-    type_config = next((t for t in DECISION_TYPES if t["id"] == decision["type"]), DECISION_TYPES[2])
+    type_config = _get_type_config(decision["type"])
     overall_score = clamp((human["score"] + biz["score"] + fin["score"] + rel["score"]) / 4)
     gap = max(0, type_config["minOverall"] - overall_score)
 
