@@ -17,6 +17,7 @@ const History = lazy(() => import("./pages/History"));
 const Plans = lazy(() => import("./pages/Plans"));
 const Evolution = lazy(() => import("./pages/Evolution"));
 const Channels = lazy(() => import("./pages/Channels"));
+const ConnectGPT = lazy(() => import("./pages/ConnectGPT"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
                 <Route path="/plans" element={<Plans />} />
                 <Route path="/evolution" element={<Evolution />} />
                 <Route path="/channels" element={<Channels />} />
+                <Route path="/connect-gpt" element={<ConnectGPT />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

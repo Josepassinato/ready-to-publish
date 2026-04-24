@@ -80,3 +80,36 @@ Governo de Decisão. Protocolo Luz & Vaso, Constituição Artigos I-VII.
 - Supabase legado: frontend `.env` ainda tem `VITE_SUPABASE_*` — pode remover se não estiver mais usado (verificar antes)
 
 **Sandbox**: `/root/sandbox/lifeos_20260418_1934` (desatualizado, anterior ao commit `dd11c75`) — candidato a limpeza se não houver trabalho pendente lá.
+
+### 2026-04-24 — UI `/connect-gpt` + paste no onboarding
+
+**Objetivo**: fechar a lacuna de UX pendente desde 20/04 — usuário precisava de curl para criar
+API key `lo_sk_*` e plugar no ChatGPT. Também: adicionar paste direto no passo de import do
+onboarding para não exigir salvar arquivo `.json`.
+
+**Feito** (commit pendente ao final desta seção):
+- **Nova página** `src/pages/ConnectGPT.tsx` (390 linhas) — lista/gera/revoga keys (GET/POST/revoke
+  de `/api/public/keys`), card com URL do MCP, instruções passo-a-passo do ChatGPT Pro, lista das
+  4 tools. Modal de exibição única para a chave recém-gerada (nunca vai aparecer de novo).
+- **Rota** `/connect-gpt` em `src/App.tsx` (lazy-loaded) + **item de menu** "Conectar GPT" em
+  `src/components/AppLayout.tsx`.
+- **Onboarding step 4** (`src/pages/Onboarding.tsx`) — trocado o upload único por `<Tabs>`
+  "Colar texto" | "Upload .json". Reaproveita o mesmo `extractJsonFromText` + `validateFacts`.
+- Backend intocado — endpoints já existiam em `api/public_api.py` desde `dd11c75`.
+
+**Deploy + teste**:
+- Sandbox `/root/sandbox/lifeos_20260424_1424`, `npm run build` verde.
+- rsync → `/var/www/lifeos/` (excluindo `.env`, `.git`, `.planning`, `HISTORICO.md`,
+  `node_modules`, `bun.lockb`). Frontend estático, sem restart PM2.
+- Playwright: login → `/connect-gpt` renderiza com key existente "chatgpt" visível e instruções;
+  `/onboarding` step 4 com paste tab ativa e textarea funcional.
+- Screenshots em `/tmp/lifeos-{02-connect-gpt,04-onboarding-paste-tab}.png`.
+
+**Discussão sem ação** (ficou pra próxima sessão):
+- José compartilhou análise do ChatGPT sobre "contaminação" de resposta do LLM quando orquestra
+  MCP tools. Alinhamento: Custom Connector MCP não tem system prompt editável → não há como forçar
+  verbatim. Caminho estudado: Custom GPT paralelo (Actions OpenAPI com system prompt próprio),
+  ou retornar `{verdict_preview, canonical_url}` em `evaluate_decision` e deixar o verdict canônico
+  no app/Telegram/WhatsApp. Nada disso foi implementado ainda.
+
+**Key ativa**: 1 — `lo_sk_12fqrXnu…` ("chatgpt"), criada 14:20 UTC.

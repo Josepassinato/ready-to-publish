@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { Shield, ArrowRight, ArrowLeft, User, Briefcase, Heart, PlusCircle, Trash2, Sparkles, Copy, Check, Upload } from "lucide-react";
+import { Shield, ArrowRight, ArrowLeft, User, Briefcase, Heart, PlusCircle, Trash2, Sparkles, Copy, Check, Upload, ClipboardPaste } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 
 const IMPORT_PROMPT = `Gere um arquivo JSON com tudo que você sabe sobre mim, seguindo EXATAMENTE este schema:
@@ -113,6 +114,8 @@ const Onboarding = () => {
   const [importFacts, setImportFacts] = useState<ImportedFact[] | null>(null);
   const [importError, setImportError] = useState<string>("");
   const [importFileName, setImportFileName] = useState<string>("");
+  const [importSource, setImportSource] = useState<"file" | "paste">("file");
+  const [pastedText, setPastedText] = useState<string>("");
   const [promptCopied, setPromptCopied] = useState(false);
 
   useEffect(() => {
@@ -192,6 +195,32 @@ const Onboarding = () => {
       const message = err instanceof Error ? err.message : String(err);
       setImportError(message);
     }
+  };
+
+  const handleImportPaste = () => {
+    setImportError("");
+    setImportFacts(null);
+    setImportFileName("");
+    const text = pastedText.trim();
+    if (!text) {
+      setImportError("Cole o JSON (ou a resposta completa da IA) antes de processar.");
+      return;
+    }
+    try {
+      const parsed = extractJsonFromText(text);
+      const facts = validateFacts(parsed);
+      setImportFacts(facts);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setImportError(message);
+    }
+  };
+
+  const clearImport = () => {
+    setImportFacts(null);
+    setImportFileName("");
+    setImportError("");
+    setPastedText("");
   };
 
   const submitImport = async (): Promise<boolean> => {
@@ -608,8 +637,8 @@ const Onboarding = () => {
                 </p>
                 <ol className="text-xs text-muted-foreground list-decimal pl-4 space-y-1">
                   <li>Copie o prompt abaixo.</li>
-                  <li>Cole no ChatGPT e salve a resposta como arquivo <code>.json</code>.</li>
-                  <li>Faça upload aqui e confira o preview antes de confirmar.</li>
+                  <li>Cole no ChatGPT (ou Claude/Gemini) e pegue a resposta.</li>
+                  <li>Traga pra cá: <strong>cole o texto</strong> direto ou faça <strong>upload</strong> do <code>.json</code>.</li>
                 </ol>
               </div>
 
@@ -624,30 +653,69 @@ const Onboarding = () => {
                 <Textarea value={IMPORT_PROMPT} readOnly className="min-h-[180px] font-mono text-xs" />
               </div>
 
-              <div className="space-y-2">
-                <Label>Arquivo JSON</Label>
-                <label className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <div className="text-sm">
-                    <p className="text-foreground">
-                      {importFileName ? importFileName : "Clique para escolher o arquivo .json"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Apenas o arquivo — nada é enviado antes de você confirmar.
-                    </p>
-                  </div>
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) void handleImportFile(file);
-                    }}
-                  />
-                </label>
+              <div className="space-y-3">
+                <Label>Importar resposta</Label>
+                <Tabs value={importSource} onValueChange={(v) => { setImportSource(v as "file" | "paste"); setImportError(""); }}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="paste" className="flex-1 gap-2">
+                      <ClipboardPaste className="h-4 w-4" />
+                      Colar texto
+                    </TabsTrigger>
+                    <TabsTrigger value="file" className="flex-1 gap-2">
+                      <Upload className="h-4 w-4" />
+                      Upload .json
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="paste" className="space-y-2 mt-3">
+                    <Textarea
+                      value={pastedText}
+                      onChange={(event) => setPastedText(event.target.value)}
+                      placeholder='Cole aqui a resposta da IA. Pode ser o JSON puro ou o bloco ```json ... ``` inteiro.'
+                      className="min-h-[200px] font-mono text-xs"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Tudo fica local até você confirmar na próxima etapa.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleImportPaste}
+                        disabled={!pastedText.trim()}
+                      >
+                        <Check className="mr-2 h-4 w-4" />
+                        Processar JSON
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="file" className="mt-3">
+                    <label className="flex items-center gap-3 rounded-xl border border-dashed border-border p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <div className="text-sm">
+                        <p className="text-foreground">
+                          {importFileName ? importFileName : "Clique para escolher o arquivo .json"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Apenas o arquivo — nada é enviado antes de você confirmar.
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".json,application/json"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) void handleImportFile(file);
+                        }}
+                      />
+                    </label>
+                  </TabsContent>
+                </Tabs>
                 {importError && (
-                  <p className="text-xs text-destructive">Erro no arquivo: {importError}</p>
+                  <p className="text-xs text-destructive">Erro: {importError}</p>
                 )}
               </div>
 
@@ -657,10 +725,10 @@ const Onboarding = () => {
                     <Label>Preview — {importFacts.length} fatos</Label>
                     <button
                       type="button"
-                      onClick={() => { setImportFacts(null); setImportFileName(""); setImportError(""); }}
+                      onClick={clearImport}
                       className="text-xs text-muted-foreground hover:text-foreground"
                     >
-                      Remover arquivo
+                      Limpar e tentar outro
                     </button>
                   </div>
                   <div className="rounded-xl border border-border max-h-72 overflow-auto">
