@@ -1,76 +1,85 @@
 # LifeOS — SESSION-NOTES
 
 > Estado da última sessão. Ler primeiro ao iniciar nova sessão (Regra 4 do 12Brain).
-> Fonte primária do histórico narrativo continua sendo `/var/www/lifeos/HISTORICO.md`.
+> Fonte primária do histórico narrativo continua sendo `HISTORICO.md` (no sandbox, não em prod).
 
-## Última sessão: 2026-04-24 — UI para ChatGPT + paste no onboarding
+## Última sessão: 2026-04-24 — Anti-contaminação ChatGPT: `answer` verbatim + tool descs blindadas + `/connect-gpt` reposicionado
 
-**Objetivo**: criar painel intuitivo `/connect-gpt` para o usuário gerar/revogar
-API keys e ver instruções de conexão ao ChatGPT Pro, sem depender de curl.
-Adicionar opção de **colar texto** na etapa de import do onboarding (além do upload).
-
-**Status**: CONCLUÍDO e em produção. Testado via Playwright.
+**Status**: CONCLUÍDO e em produção. Commit `363c85a` pushado. Smoke backend verde.
 
 ### O que foi feito
-- **Nova página** `src/pages/ConnectGPT.tsx` (390 linhas): lista keys (GET), cria
-  nova (POST com modal de exibição única da `lo_sk_*`), revoga (POST revoke),
-  card com URL do MCP copiável, instruções passo-a-passo do ChatGPT Pro,
-  lista dos 4 tools disponíveis. Reutiliza `useAuth.getToken` e shadcn Dialog/Card/Badge.
-- **Rota** `/connect-gpt` adicionada em `src/App.tsx` (lazy-loaded).
-- **Item de menu** "Conectar GPT" (ícone Sparkles) em `src/components/AppLayout.tsx`,
-  visível desktop + mobile (cai no "Mais" no mobile).
-- **Onboarding step 4**: trocado o upload único por Tabs com 2 modos — "Colar texto"
-  (Textarea + botão "Processar JSON") e "Upload .json" (comportamento antigo preservado).
-  Mesmo extrator (`extractJsonFromText` + `validateFacts`). Novo estado
-  `importSource`/`pastedText`, novo helper `handleImportPaste` e `clearImport`.
-- Backend intocado — endpoints `POST/GET /api/public/keys` e `POST /api/public/keys/{id}/revoke`
-  já existiam em `api/public_api.py`.
 
-### Deploy
-- Sandbox: `/root/sandbox/lifeos_20260424_1424`
-- Build: `npm run build` verde no sandbox (ConnectGPT-DAn5mshF.js 12.28kB).
-- rsync sandbox → /var/www/lifeos (excluindo .env, .git, node_modules, .planning, HISTORICO.md, bun.lockb).
-- Frontend estático, sem restart PM2.
-- Smoke: `GET /api/public/keys` com JWT → 200 (1 key "chatgpt" ativa).
-- Playwright: login OK → `/connect-gpt` renderiza com a key existente, instruções,
-  URL MCP visível e copiável → `/onboarding` step 4 com tabs Paste/Upload, paste ativo default.
-- Screenshots salvos em `/tmp/lifeos-02-connect-gpt.png` e `/tmp/lifeos-04-onboarding-paste-tab.png`.
+Fechou os 2 itens de curto prazo que ficaram da sessão `67a3281`:
+1. ✅ Modificar `evaluate_decision` para o ChatGPT não reinterpretar (abordagem: campo `answer`
+   verbatim com texto pronto "VEREDITO: ..." + tool descriptions blindadas no MCP).
+2. ✅ Disclaimer honesto na `/connect-gpt` sobre possível reinterpretação + apontar `/chat`
+   como canal canônico.
+3. ✅ Bônus: reposicionamento da `/connect-gpt` para comunicar os **dois caminhos** (ChatGPT
+   via Connector vs chat nativo LifeOS), com nome sugerido do Connector, trigger `LifeOS:`
+   e exemplos de prompt.
 
-### Discussão de produto registrada (não-implementada ainda)
-José recebeu análise do ChatGPT sobre "contaminação" de resposta do LLM quando orquestra
-MCP tools. Conclusão conjunta nesta sessão:
+**Contexto recuperado do transcript `d663c7ce` (sessão que caiu no meio)**: 3 de 6 tasks já
+estavam prontas no sandbox quando o terminal fechou (sandbox + MCP descs + campo answer).
+Esta sessão retomou e finalizou as tasks 4-6.
 
-- Custom Connector MCP **não tem system prompt editável** pelo usuário; o ChatGPT pode
-  ignorar a `description` da tool.
-- Atenuar com trigger `"LifeOS:"` é hack, não solução.
-- Caminho real: (a) aceitar que ChatGPT é UX de entrada, não canal autoritativo; verdict
-  canônico fica no app/Telegram/WhatsApp; (b) futuramente construir **Custom GPT com Actions**
-  (OpenAPI, não MCP) em paralelo ao Connector — system prompt próprio travado.
-- Ação de curto prazo: adicionar aviso honesto na `/connect-gpt` e considerar retornar
-  `{verdict_preview, canonical_url}` em `evaluate_decision` em vez do verdict inteiro.
-- **Ainda não implementado**. Fica de próxima sessão.
+### Arquivos afetados
+
+Commit `363c85a`:
+- `api/public_api.py` — função `format_answer_text(result)` + injeção em `POST /api/public/evaluate`
+- `api/mcp/server.py` — 4 tool descriptions reescritas com instruções verbatim
+- `src/pages/ConnectGPT.tsx` — header "dois caminhos" + cards + trigger + exemplos + disclaimer
+- `api/tests/test_format_answer.py` — 4 testes novos
+
+### Deploy executado
+
+- rsync sandbox `lifeos_20260424_1530` → `/var/www/lifeos/` (exclui .git, .planning, node_modules, .env, bun.lockb, .pytest_cache, dist, HISTORICO.md)
+- `dist/` copiado separadamente do sandbox porque prod não tem `vite` global
+- `pm2 restart lifeos-api` — pid 1562118, startup clean
+- Commit + push para `origin/main` (GitHub `Josepassinato/lifeos`)
+
+### Smoke pós-deploy verde
+
+- `GET /` → 200
+- `GET /connect-gpt` → 200
+- `GET /api/health` → `{"status":"ok","service":"lifeos-api","ai":"grok-4.20"}`
+- `POST /mcp/ tools/list` → 200 com as 4 tools servindo as **descriptions novas blindadas** (verificado grep no response: "CALL THIS TOOL", "VERBATIM", "Do NOT rewrite")
+- pm2 logs limpos (startup.ready db_pool_ok, mcp_session_manager_ok)
+- `dist/assets/ConnectGPT-BqKzZlFo.js` contém "dois caminhos" e "Aviso honesto"
+- pytest subset (10 testes) em /var/www/lifeos/api — 10/10 pós-rsync
+
+### Pendente (validação que só você pode fazer)
+
+- [ ] Abrir https://lifeos.12brain.org/connect-gpt no browser e confirmar visual:
+  - 2 cards lado a lado no topo ("ChatGPT + LifeOS" + "Chat nativo LifeOS")
+  - Passo 3 com nome do Connector `LifeOS`, 3 exemplos de prompt em fundo cinza
+  - Disclaimer âmbar "Aviso honesto" antes do botão Abrir ChatGPT
+- [ ] E2E MCP real: reconectar o Connector no ChatGPT Pro (pode já estar ativo com a key `lo_sk_12fqrXnu…`),
+  começar mensagem com `LifeOS: ` e conferir se o veredito sai verbatim (campo `answer`).
 
 ### Serviços
-- PM2 `lifeos-api` (id 39/42) online, bind 8010
-- Nginx `lifeos.12brain.org` → SSL válido, /mcp/ ativo
+
+- PM2 `lifeos-api` online, pid 1562118, bind 8010 — **restart count 1 após esta sessão**
+- Nginx `lifeos.12brain.org` → SSL válido, `/mcp/` ativo
 - Postgres local `lifeos` — 14 tabelas
-- MCP tools: evaluate_decision, list_decisions, get_memory, get_user_context
+- MCP tools: evaluate_decision, list_decisions, get_memory, get_user_context — **descriptions novas em prod**
 - API keys ativas: 1 ("chatgpt", prefix `lo_sk_12fqrXnu`)
 
-### Pendências
-Backlog de produto (Custom GPT + canal autoritativo):
-- [ ] Adicionar disclaimer na `/connect-gpt` sobre ChatGPT ser entrada, não canal autoritativo.
-- [ ] Modificar `evaluate_decision` para retornar `{verdict_preview, canonical_url}` em vez do verdict completo.
-- [ ] Avaliar construir Custom GPT paralelo ao Connector MCP (Actions OpenAPI).
+### Pendências de produto (próximas sessões)
 
-Débitos técnicos herdados:
-- [ ] **Wave 3**: `update_user_memory()` pós-chat (decisão de produto).
-- [ ] **Supabase legado no frontend**: 5 páginas ainda importam `@/integrations/supabase/client`
-  (incluindo `Onboarding.tsx` e `Channels.tsx`). Remover `VITE_SUPABASE_*` quebra build.
-- [ ] **Governance_engine fallback morto**: código morto após Pydantic Literal.
+- [ ] Avaliar **Custom GPT** paralelo ao Connector MCP (Actions OpenAPI com system prompt próprio travado)
+  — caminho de 100% controle que nem o trigger + answer verbatim fornece totalmente.
+
+### Débitos técnicos herdados
+
+- [ ] Wave 3: `update_user_memory()` automático pós-chat (decisão de produto: quando extrair fatos?)
+- [ ] Supabase legado no frontend: 5 páginas ainda importam `@/integrations/supabase/client`
+- [ ] Governance_engine fallback morto: `DECISION_TYPES[2]` em 3 pontos após Pydantic Literal no boundary
 
 ### Arquivos de referência
-- Histórico narrativo: `HISTORICO.md`
+
+- Sandbox atual: `/root/sandbox/lifeos_20260424_1530/` (com .git, pode servir pra próxima sessão após `git pull`)
+- Histórico narrativo: `/root/sandbox/lifeos_20260424_1530/HISTORICO.md`
 - OS 001 original: `/root/lifeos_ordem_isolamento.json`
 - Nginx: `/etc/nginx/sites-enabled/lifeos`
 - Docs MCP: `api/mcp/README.md`
+- Repo GitHub: `git@github.com:Josepassinato/lifeos.git` (último commit: `363c85a`)

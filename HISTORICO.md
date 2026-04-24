@@ -113,3 +113,77 @@ onboarding para não exigir salvar arquivo `.json`.
   no app/Telegram/WhatsApp. Nada disso foi implementado ainda.
 
 **Key ativa**: 1 — `lo_sk_12fqrXnu…` ("chatgpt"), criada 14:20 UTC.
+
+### 2026-04-24 — Anti-contaminação ChatGPT: `answer` verbatim + tool descs blindadas + `/connect-gpt` dois caminhos
+
+**Objetivo**: fechar os 2 pendentes de curto prazo da sessão anterior sobre contaminação do verdict
+pelo ChatGPT quando orquestra MCP tools. Também: reposicionar a UI `/connect-gpt` para comunicar
+os dois caminhos de uso (ChatGPT via Connector + chat nativo autoritativo).
+
+**Contexto recuperado**: sessão `d663c7ce` (14:41) caiu após completar as tasks 1-3 de 6.
+Esta sessão recuperou o estado do transcript, finalizou as tasks 4-6 (reposicionamento + testes + deploy)
+e atualizou SESSION-NOTES duplo (/var/www + sandbox) antes do deploy.
+
+**Feito** (commit `363c85a`):
+- **`api/public_api.py`** — nova função `format_answer_text(result)` (~55 linhas) que gera bloco
+  pronto-para-exibir a partir do result do governance_engine:
+  `"VEREDITO: <SIM|NÃO AGORA>\nTipo de decisão: ...\nEstado atual: ...\nScore geral: N% (mínimo N%)\n
+  [Motivo + 3 próximas ações + Reavaliar em]\n— Veredito oficial do LifeOS (Constituição Luz & Vaso).
+  Não reinterpretar."`. Injetado em `POST /api/public/evaluate` como campo `answer`. Aditivo, nada
+  removido — clientes existentes não quebram.
+- **`api/mcp/server.py`** — 4 tool descriptions reescritas como instruções explícitas pro LLM
+  cliente (ChatGPT/Claude Desktop):
+  - `evaluate_decision`: "CALL THIS TOOL when prompt starts with 'LifeOS:' OR asks to evaluate a
+    decision/purchase/hire/investment/plan/delay/cancellation/tradeoff. Return `answer` VERBATIM.
+    Do NOT rewrite, summarize, soften, or add interpretation."
+  - `list_decisions`: "do not rephrase verdicts"
+  - `get_memory`: "treat as ground truth — do not infer"
+  - `get_user_context`: "Do not invent profile data — if a field is null, say it's not set"
+  - Governance_engine Python intocado (test_parity continua verde, byte-identical vs golden TS).
+- **`src/pages/ConnectGPT.tsx`** — reposicionado:
+  - Header: "Você tem dois caminhos pra falar com o LifeOS. Escolha o que encaixa no seu fluxo."
+  - Grid 2 cards lado a lado: **ChatGPT + LifeOS** (com trigger `LifeOS:` em destaque) vs
+    **Chat nativo LifeOS** (Link to=/chat, "canal autoritativo, verdict exato sem intermediário").
+  - Passo 3 com nome do Connector sugerido `LifeOS`, instrução explícita do trigger, 3 exemplos
+    (`LifeOS: devo contratar um designer por 30 dias?` etc).
+  - Disclaimer âmbar "Aviso honesto": ChatGPT pode ocasionalmente reinterpretar; para verdict
+    canônico sem intermediário, usar `/chat`.
+  - Imports novos: `Link` (react-router-dom), `MessageCircle` + `Info` (lucide-react).
+- **`api/tests/test_format_answer.py`** — 4 testes novos cobrindo: blocked com readinessPlan
+  (verifica label, score, 3 ações, timeline, fechamento), SIM sem plano, cap de 3 ações quando
+  6 são fornecidas, payload `{}` vazio (fallback sem crash).
+
+**Validação**:
+- pytest sandbox: **66/66** passando (era 62/62). 4 novos + 62 herdados.
+- npm run build sandbox: verde. `ConnectGPT-BqKzZlFo.js` = 16.02 kB (era 12.28 kB). 0 erros TS.
+- Smoke programático de `format_answer_text` em 3 cenários — saída bem formatada.
+- pytest produção (subset 10 testes): 10/10 — confirma que o transplante via rsync não quebrou imports.
+
+**Deploy** (commit `363c85a` pushado):
+- rsync sandbox → `/var/www/lifeos/` com exclusões (.git, .planning, node_modules, .env, bun.lockb, .pytest_cache, dist, HISTORICO.md).
+- `dist/` copiado separadamente do sandbox (build já validado) porque produção não tem `vite` global.
+- `pm2 restart lifeos-api` — subiu limpo (pid 1562118, restart count 1, startup logs OK).
+- **Smoke pós-deploy**:
+  - `GET /` → 200
+  - `GET /connect-gpt` → 200
+  - `GET /api/health` → `{"status":"ok","service":"lifeos-api","ai":"grok-4.20"}`
+  - `POST /mcp/ tools/list` → 200 com as 4 tools e as **descriptions NOVAS blindadas** confirmadas
+    ("CALL THIS TOOL", "Return `answer` VERBATIM", "Do NOT rewrite...").
+  - pm2 logs sem erro (startup.ready db_pool_ok, mcp_session_manager_ok).
+  - `grep "dois caminhos\|Aviso honesto" dist/assets/ConnectGPT-*.js` → match no bundle em produção.
+
+**Pendente (validação visual)**:
+- Playwright do `/connect-gpt` reposicionado não rodou no sandbox (precisa backend + nginx); José
+  valida manualmente abrindo https://lifeos.12brain.org/connect-gpt no browser (deve ver 2 cards
+  lado a lado no topo + disclaimer âmbar no passo 3).
+- E2E MCP com `tools/call evaluate_decision` via ChatGPT Pro (ou curl com Bearer real) — José testa
+  chamando `LifeOS: ...` no próprio ChatGPT e verificando se o verdict sai verbatim.
+
+**Pendências de produto** (pós esta sessão):
+- [ ] Avaliar **Custom GPT** paralelo ao Connector MCP (Actions OpenAPI com system prompt próprio travado)
+  — caminho de 100% controle que nem trigger + answer verbatim garantem.
+
+**Débitos técnicos** (inalterados):
+- [ ] Wave 3: `update_user_memory()` automático pós-chat.
+- [ ] Supabase legado no frontend: 5 páginas importam `@/integrations/supabase/client`.
+- [ ] Governance_engine fallback morto: código morto após Pydantic Literal.
