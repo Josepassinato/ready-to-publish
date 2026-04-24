@@ -3,83 +3,86 @@
 > Estado da última sessão. Ler primeiro ao iniciar nova sessão (Regra 4 do 12Brain).
 > Fonte primária do histórico narrativo continua sendo `HISTORICO.md` (no sandbox, não em prod).
 
-## Última sessão: 2026-04-24 — Anti-contaminação ChatGPT: `answer` verbatim + tool descs blindadas + `/connect-gpt` reposicionado
+## Última sessão: 2026-04-24 (continuação) — Fallback morto limpo + artefatos Custom GPT
 
-**Status**: CONCLUÍDO e em produção. Commit `363c85a` pushado. Smoke backend verde.
+**Status**: PARCIAL — 2 de 4 pendências concluídas e deployadas; 2 aguardando decisão do José.
 
-### O que foi feito
+### Entregue e em produção (commits `363c85a`, `6dba97a`, `c14aa73`)
 
-Fechou os 2 itens de curto prazo que ficaram da sessão `67a3281`:
-1. ✅ Modificar `evaluate_decision` para o ChatGPT não reinterpretar (abordagem: campo `answer`
-   verbatim com texto pronto "VEREDITO: ..." + tool descriptions blindadas no MCP).
-2. ✅ Disclaimer honesto na `/connect-gpt` sobre possível reinterpretação + apontar `/chat`
-   como canal canônico.
-3. ✅ Bônus: reposicionamento da `/connect-gpt` para comunicar os **dois caminhos** (ChatGPT
-   via Connector vs chat nativo LifeOS), com nome sugerido do Connector, trigger `LifeOS:`
-   e exemplos de prompt.
+- ✅ `/connect-gpt` reposicionado (dois caminhos + trigger + disclaimer)
+- ✅ Campo `answer` verbatim no `POST /api/public/evaluate`
+- ✅ 4 tool descriptions MCP blindadas
+- ✅ **Governance engine fallback morto removido** — `_get_type_config()` helper +
+  raise defensivo nos 3 callsites. Pydantic `DecisionTypeLiteral` já bloqueia
+  no boundary, fallback era código morto silencioso.
+- ✅ **Artefatos Custom GPT** prontos em `deploy/custom-gpt/`:
+  `openapi.yaml` + `system-prompt.md` + `README.md`. Spec também servido em
+  `https://lifeos.12brain.org/openapi-custom-gpt.yaml`. José cria o GPT na
+  OpenAI manualmente seguindo o README.
 
-**Contexto recuperado do transcript `d663c7ce` (sessão que caiu no meio)**: 3 de 6 tasks já
-estavam prontas no sandbox quando o terminal fechou (sandbox + MCP descs + campo answer).
-Esta sessão retomou e finalizou as tasks 4-6.
+### AGUARDANDO decisão do José
 
-### Arquivos afetados
+**#3 Supabase legado no frontend**
 
-Commit `363c85a`:
-- `api/public_api.py` — função `format_answer_text(result)` + injeção em `POST /api/public/evaluate`
-- `api/mcp/server.py` — 4 tool descriptions reescritas com instruções verbatim
-- `src/pages/ConnectGPT.tsx` — header "dois caminhos" + cards + trigger + exemplos + disclaimer
-- `api/tests/test_format_answer.py` — 4 testes novos
+Inventário revisado: **12 arquivos, 18 call sites** (não 5 como o SESSION-NOTES
+anterior sugeria). Distribuição:
+- 5 triviais (endpoint `/api/*` já existe 1:1): `Dashboard.tsx`, `Evolution.tsx`,
+  `History.tsx`, `lib/memory.ts`, `hooks/useOnboardingCheck.ts`
+- 2 médios: `Channels.tsx` (remover telegram-webhook inline que é callback externo,
+  mapear channel-status), `Onboarding.tsx`
+- 5 precisam endpoint backend novo:
+  - `DecisionVerdict.tsx` → `GET /api/decisions/:id` (novo)
+  - `Plans.tsx` → `GET /api/plans` (novo)
+  - `lib/supabase-utils.ts` → `POST /api/readiness-plans` + `POST /api/state-classifications` (novos)
+  - `lib/audit-logger.ts` → `POST /api/audit-log` OU expor `governance_audit_log` no db_proxy
+  - `lib/feature-flags.ts` → db_proxy whitelist para `feature_flags` OU endpoint dedicado
 
-### Deploy executado
+**Opções apresentadas** (aguardando escolha):
+- A) Só os 5 triviais (~1h). Reduz 42% do débito, elimina trabalho sem backend novo.
+- B) Completo: 5 endpoints + 12 arquivos. 3-5h, risco visual em várias telas.
+- C) Expandir `/api/rpc/{fn}` + `/api/db/{table}` universais.
+- D) Adiar: Supabase legado FUNCIONA hoje; só o `VITE_SUPABASE_*` fica no .env.
 
-- rsync sandbox `lifeos_20260424_1530` → `/var/www/lifeos/` (exclui .git, .planning, node_modules, .env, bun.lockb, .pytest_cache, dist, HISTORICO.md)
-- `dist/` copiado separadamente do sandbox porque prod não tem `vite` global
-- `pm2 restart lifeos-api` — pid 1562118, startup clean
-- Commit + push para `origin/main` (GitHub `Josepassinato/lifeos`)
+Nesta sessão recomendei A. José está decidindo.
 
-### Smoke pós-deploy verde
+**#2 Wave 3 `update_user_memory()` pós-chat**
 
-- `GET /` → 200
-- `GET /connect-gpt` → 200
-- `GET /api/health` → `{"status":"ok","service":"lifeos-api","ai":"grok-4.20"}`
-- `POST /mcp/ tools/list` → 200 com as 4 tools servindo as **descriptions novas blindadas** (verificado grep no response: "CALL THIS TOOL", "VERBATIM", "Do NOT rewrite")
-- pm2 logs limpos (startup.ready db_pool_ok, mcp_session_manager_ok)
-- `dist/assets/ConnectGPT-BqKzZlFo.js` contém "dois caminhos" e "Aviso honesto"
-- pytest subset (10 testes) em /var/www/lifeos/api — 10/10 pós-rsync
+7 perguntas de produto em aberto:
+1. **Quando extrair fatos?** cada turn / cada N turns / só com `/remember` / fim de sessão / só quando verdict=SIM
+2. **Qual LLM?** Grok 4.20 (caro, disponível) / gpt-4o-mini / regex-heurística
+3. **Custo aceitável/conversa?** (Grok ~10 turns ≈ $0.02-0.05)
+4. **Dedupe**: `(category, key)` overwrite `updated_at` ou versões históricas?
+5. **Conflito de fatos**: sobrescrever ou anotar contradição?
+6. **Opt-in ou opt-out default?**
+7. **Confirmação humana**: auto-silencioso ou "LifeOS quer lembrar: X. Confirma?"
 
-### Pendente (validação que só você pode fazer)
+Não implementável sem essas decisões.
 
-- [ ] Abrir https://lifeos.12brain.org/connect-gpt no browser e confirmar visual:
-  - 2 cards lado a lado no topo ("ChatGPT + LifeOS" + "Chat nativo LifeOS")
-  - Passo 3 com nome do Connector `LifeOS`, 3 exemplos de prompt em fundo cinza
-  - Disclaimer âmbar "Aviso honesto" antes do botão Abrir ChatGPT
-- [ ] E2E MCP real: reconectar o Connector no ChatGPT Pro (pode já estar ativo com a key `lo_sk_12fqrXnu…`),
-  começar mensagem com `LifeOS: ` e conferir se o veredito sai verbatim (campo `answer`).
+### Serviços (inalterados)
 
-### Serviços
-
-- PM2 `lifeos-api` online, pid 1562118, bind 8010 — **restart count 1 após esta sessão**
-- Nginx `lifeos.12brain.org` → SSL válido, `/mcp/` ativo
+- PM2 `lifeos-api` online, pid novo pós-restart desta sessão, bind 8010
+- Nginx `lifeos.12brain.org` → SSL, `/mcp/` ativo
 - Postgres local `lifeos` — 14 tabelas
-- MCP tools: evaluate_decision, list_decisions, get_memory, get_user_context — **descriptions novas em prod**
-- API keys ativas: 1 ("chatgpt", prefix `lo_sk_12fqrXnu`)
+- MCP tools: 4 servindo descriptions blindadas
+- API keys ativas: 1 (`lo_sk_12fqrXnu…`)
 
-### Pendências de produto (próximas sessões)
+### Smoke pós-deploy desta continuação (verde)
 
-- [ ] Avaliar **Custom GPT** paralelo ao Connector MCP (Actions OpenAPI com system prompt próprio travado)
-  — caminho de 100% controle que nem o trigger + answer verbatim fornece totalmente.
-
-### Débitos técnicos herdados
-
-- [ ] Wave 3: `update_user_memory()` automático pós-chat (decisão de produto: quando extrair fatos?)
-- [ ] Supabase legado no frontend: 5 páginas ainda importam `@/integrations/supabase/client`
-- [ ] Governance_engine fallback morto: `DECISION_TYPES[2]` em 3 pontos após Pydantic Literal no boundary
+- `GET /api/health` → 200
+- `GET /openapi-custom-gpt.yaml` → 200 (8431 bytes, YAML servido)
+- pytest produção subset → 56/56 (test_governance_engine 55 + test_decision_validation 1)
+- pm2 logs: startup clean, requests normais
 
 ### Arquivos de referência
 
-- Sandbox atual: `/root/sandbox/lifeos_20260424_1530/` (com .git, pode servir pra próxima sessão após `git pull`)
-- Histórico narrativo: `/root/sandbox/lifeos_20260424_1530/HISTORICO.md`
+- Sandbox atual: `/root/sandbox/lifeos_20260424_1513/`
+- Sandbox anterior: `/root/sandbox/lifeos_20260424_1530/` (pode ser limpa — desatualizado)
+- Repo: `git@github.com:Josepassinato/lifeos.git` — último commit `c14aa73`
+- Histórico narrativo: `/root/sandbox/lifeos_20260424_1513/HISTORICO.md`
 - OS 001 original: `/root/lifeos_ordem_isolamento.json`
-- Nginx: `/etc/nginx/sites-enabled/lifeos`
-- Docs MCP: `api/mcp/README.md`
-- Repo GitHub: `git@github.com:Josepassinato/lifeos.git` (último commit: `363c85a`)
+
+### Próxima sessão deve começar perguntando
+
+1. "Qual opção para #3 Supabase (A/B/C/D)?"
+2. "Quer responder as 7 perguntas de Wave 3 ou pula?"
+3. Se #1 e #2 resolvidos, partir para pendência nova ou outra coisa.

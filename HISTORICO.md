@@ -187,3 +187,60 @@ e atualizou SESSION-NOTES duplo (/var/www + sandbox) antes do deploy.
 - [ ] Wave 3: `update_user_memory()` automático pós-chat.
 - [ ] Supabase legado no frontend: 5 páginas importam `@/integrations/supabase/client`.
 - [ ] Governance_engine fallback morto: código morto após Pydantic Literal.
+
+### 2026-04-24 (continuação) — Limpar fallback morto + artefatos Custom GPT
+
+**Objetivo**: atacar 2 pendências restantes do sprint anti-contaminação.
+#3 (Supabase refactor) e #2 (Wave 3 update_user_memory) ficaram aguardando
+decisão de produto — ver plano abaixo.
+
+**Feito** (commit `c14aa73`):
+- **`api/governance_engine.py`** — helper `_get_type_config(decision_type)` extrai
+  o lookup em `DECISION_TYPES` e levanta `ValueError` explícito quando o tipo não
+  existe (defensivo, mas Pydantic `DecisionTypeLiteral` já bloqueia no boundary).
+  Os 3 callsites (`check_thresholds` linha 271, `make_readiness_plan` ex-399,
+  `govern` ex-491) passaram de `next(..., DECISION_TYPES[2])` — fallback silencioso
+  para "strategic" que virou código morto desde a Wave 5 — para o helper novo.
+  Suite 66/66 segue verde.
+- **`deploy/custom-gpt/`** — 3 artefatos prontos para criar Custom GPT paralelo
+  ao Connector MCP:
+  - `openapi.yaml` (OpenAPI 3.1, 4 Actions mapeadas para `/api/public/*`)
+  - `system-prompt.md` (instructions travadas: "return answer VERBATIM",
+    "never generate your own verdict", trigger `LifeOS:`)
+  - `README.md` (passo-a-passo completo de criação na OpenAI)
+- **`public/openapi-custom-gpt.yaml`** — cópia servida estaticamente
+  em `https://lifeos.12brain.org/openapi-custom-gpt.yaml` para "Import from URL"
+  no Custom GPT.
+
+**Deploy** (commit `c14aa73` pushado):
+- rsync sandbox `lifeos_20260424_1513` → `/var/www/lifeos/` (exclusões padrão).
+- `dist/openapi-custom-gpt.yaml` copiado manualmente (vite não re-rodou;
+  nenhuma mudança em `src/*` exigia rebuild).
+- `pm2 restart lifeos-api` — subiu clean.
+- **Smoke**: `/api/health` 200, `/openapi-custom-gpt.yaml` 200 (8431 bytes),
+  pytest subset em produção 56/56.
+
+### Pendências depois desta sessão
+
+**#3 Supabase legado — AGUARDANDO DECISÃO DO JOSÉ**
+
+Inventário completo: 12 arquivos, 18 call sites. Distribuição:
+- 5 triviais (endpoints já existem 1:1): Dashboard, Evolution, History, memory.ts, useOnboardingCheck
+- 2 médios: Channels (remover ref telegram-webhook inline + mapear channel-status), Onboarding
+- 5 precisam endpoint novo no backend: DecisionVerdict (GET /api/decisions/:id),
+  Plans (GET /api/plans), supabase-utils (2 INSERTs faltantes), audit-logger
+  (POST /api/audit-log), feature-flags (ops em feature_flags — whitelist em db_proxy?)
+
+Opções apresentadas (A: só triviais ~1h | B: completo ~3-5h | C: proxies universais |
+D: adiar). José prefere…?
+
+**#2 Wave 3 update_user_memory — AGUARDANDO DECISÃO DE PRODUTO**
+
+7 perguntas em aberto (registradas no transcript):
+1. Quando extrair? (cada turn / N turns / /remember / fim de sessão / só após SIM?)
+2. Qual LLM? (Grok 4.20 / mini / regex?)
+3. Custo aceitável/conversa?
+4. Dedupe: overwrite ou versioned?
+5. Conflito: overwrite ou anotar contradição?
+6. Opt-in ou opt-out default?
+7. Auto silencioso ou "LifeOS quer lembrar X, confirma?"
