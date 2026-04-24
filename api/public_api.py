@@ -142,6 +142,62 @@ def _require_scope(auth: dict, scope: str):
         raise HTTPException(403, f"Missing scope: {scope}")
 
 
+def format_answer_text(result: dict) -> str:
+    """Build a ready-to-display verdict block for downstream LLMs to return verbatim.
+
+    Consumed by MCP clients (ChatGPT Custom Connector, Claude Desktop, etc) that
+    might otherwise reinterpret the structured verdict. The tool description
+    instructs the model to surface this string as-is.
+    """
+    verdict = result.get("verdict", "—")
+    overall = result.get("overallScore", 0)
+    gap = result.get("gap", 0)
+    blocked = result.get("blocked", False)
+    decision_type = (result.get("decisionType") or {}).get("label", "decisão")
+    min_required = (result.get("decisionType") or {}).get("minRequired", 0)
+    state = (result.get("state") or {}).get("label", "—")
+
+    lines: list[str] = [
+        f"VEREDITO: {verdict}",
+        "",
+        f"Tipo de decisão: {decision_type}",
+        f"Estado atual de capacidade: {state}",
+        f"Score geral: {overall}% (mínimo exigido: {min_required}%)",
+    ]
+
+    if blocked:
+        plan = result.get("readinessPlan") or {}
+        reason = plan.get("structuralReason") or (
+            f"Gap estrutural de {gap}%: capacidade insuficiente para este tipo de decisão agora."
+        )
+        lines.extend(["", "Motivo:", reason])
+
+        actions = plan.get("actions") or []
+        if actions:
+            lines.extend(["", "Próximas ações:"])
+            for a in actions[:3]:
+                act = a.get("action", "").strip()
+                horizon = a.get("horizon", "").strip()
+                if act:
+                    lines.append(f"• {act}" + (f" ({horizon})" if horizon else ""))
+
+        timeline = plan.get("timeline")
+        if timeline:
+            lines.extend(["", f"Reavaliar em: {timeline}"])
+    else:
+        lines.extend([
+            "",
+            "O sistema identificou capacidade estrutural suficiente para executar esta decisão agora.",
+            "Prossiga mantendo observação dos indicadores de estado.",
+        ])
+
+    lines.extend([
+        "",
+        "— Veredito oficial do LifeOS (Constituição Luz & Vaso). Não reinterpretar.",
+    ])
+    return "\n".join(lines)
+
+
 # ─── Schemas ───────────────────────────────────────────────────────
 
 class AssessmentIn(BaseModel):
@@ -215,6 +271,7 @@ async def evaluate(data: EvaluateReq, request: Request, auth: dict = Depends(ver
             data.decision.model_dump(),
             data.previousStateId,  # type: ignore[arg-type]
         )
+        result["answer"] = format_answer_text(result)
         return result
     except Exception as e:
         status = 500

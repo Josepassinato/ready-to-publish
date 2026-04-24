@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Link } from "react-router-dom";
 import {
   Sparkles,
   Copy,
@@ -25,6 +26,8 @@ import {
   KeyRound,
   ExternalLink,
   CheckCircle2,
+  MessageCircle,
+  Info,
 } from "lucide-react";
 
 const MCP_URL = "https://lifeos.12brain.org/mcp/";
@@ -142,9 +145,48 @@ const ConnectGPT = () => {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Conectar ao ChatGPT</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Plugue o motor de governo do LifeOS no seu ChatGPT Pro como Custom Connector.
-          Chame as decisões pela Constituição Luz & Vaso direto da conversa.
+          Você tem dois caminhos pra falar com o LifeOS. Escolha o que encaixa no seu fluxo.
         </p>
+      </div>
+
+      {/* Dois caminhos */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle className="text-base">ChatGPT + LifeOS</CardTitle>
+            </div>
+            <CardDescription className="text-xs">
+              Use o LifeOS dentro do ChatGPT como Custom Connector. Prático se você já vive lá.
+              Ative começando sua mensagem com <code className="rounded bg-muted px-1 font-mono">LifeOS:</code>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <p className="text-[11px] text-muted-foreground">Configure abaixo ↓</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                <MessageCircle className="h-4 w-4 text-foreground" />
+              </div>
+              <CardTitle className="text-base">Chat nativo LifeOS</CardTitle>
+            </div>
+            <CardDescription className="text-xs">
+              Canal autoritativo. Verdict vem exato da Constituição, sem intermediário.
+              Já está disponível, não precisa configurar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/chat">Abrir /chat</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Status card */}
@@ -285,12 +327,33 @@ const ConnectGPT = () => {
         <CardContent className="space-y-3">
           <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
             <li>Abra <strong>ChatGPT</strong> → <strong>Settings</strong> → <strong>Connectors</strong> → <strong>Build your own</strong>.</li>
+            <li>Em <strong>Name</strong> coloque <code className="rounded bg-muted px-1 font-mono text-xs">LifeOS</code>.</li>
             <li>No campo <strong>URL</strong> cole a URL do MCP acima.</li>
             <li>Em <strong>Authentication</strong>, escolha <strong>API Key</strong>.</li>
             <li>No campo <strong>API Key</strong>, cole a chave <code className="rounded bg-muted px-1 font-mono text-xs">lo_sk_…</code> gerada no passo 2.</li>
             <li>Se pedir header, use <code className="rounded bg-muted px-1 font-mono text-xs">Authorization</code> com prefixo <code className="rounded bg-muted px-1 font-mono text-xs">Bearer </code>.</li>
-            <li>Salve e teste: peça no chat <em>"use o LifeOS, me dá meu contexto atual"</em>.</li>
+            <li>Salve.</li>
           </ol>
+
+          <div className="rounded-lg border border-primary/30 bg-primary/[0.03] p-3">
+            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-primary" />
+              Como falar com o LifeOS pelo ChatGPT
+            </p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Comece a mensagem com <code className="rounded bg-muted px-1 font-mono">LifeOS:</code> — esse é o gatilho
+              para o ChatGPT delegar ao motor Luz & Vaso em vez de responder por conta própria.
+            </p>
+            <div className="mt-2 space-y-1.5">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Exemplos</p>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="rounded bg-muted/50 px-2 py-1 font-mono">LifeOS: devo contratar um designer por 30 dias?</li>
+                <li className="rounded bg-muted/50 px-2 py-1 font-mono">LifeOS: me dá meu contexto atual</li>
+                <li className="rounded bg-muted/50 px-2 py-1 font-mono">LifeOS: lista minhas últimas decisões</li>
+              </ul>
+            </div>
+          </div>
+
           <div className="rounded-lg border border-border bg-muted/30 p-3">
             <p className="text-xs font-medium text-foreground">Tools disponíveis</p>
             <ul className="mt-1 text-xs text-muted-foreground space-y-0.5">
@@ -300,6 +363,21 @@ const ConnectGPT = () => {
               <li>• <code className="font-mono">get_user_context</code> — overview de perfil + estado</li>
             </ul>
           </div>
+
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.04] p-3">
+            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+              <Info className="h-3 w-3 text-amber-600" />
+              Aviso honesto
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              O ChatGPT é o orquestrador — ele chama o LifeOS e depois formata a resposta pra você.
+              Na maioria das vezes ele devolve o veredito do LifeOS verbatim (a tool instrui isso
+              explicitamente). Mas o ChatGPT pode ocasionalmente reinterpretar, suavizar ou acrescentar
+              comentário próprio. Se você precisa do veredito canônico sem intermediário, use o{" "}
+              <Link to="/chat" className="underline underline-offset-2 hover:text-foreground">chat nativo do LifeOS</Link>.
+            </p>
+          </div>
+
           <Button variant="outline" size="sm" className="gap-1" asChild>
             <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer">
               Abrir ChatGPT <ExternalLink className="h-3 w-3" />
