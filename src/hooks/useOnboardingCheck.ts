@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet } from "@/lib/api";
 import { useAuth } from "./useAuth";
 
 export function useOnboardingCheck() {
@@ -13,20 +13,14 @@ export function useOnboardingCheck() {
       return;
     }
 
-    supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error) {
-          console.warn("[ONBOARDING_CHECK] query_failed", { message: error.message, userId: user.id });
-          // Fallback seguro: se não conseguimos ler, exige onboarding
-          setNeedsOnboarding(true);
-          setLoading(false);
-          return;
-        }
+    apiGet<{ onboarding_completed?: boolean }>("/api/profile")
+      .then((data) => {
         setNeedsOnboarding(!data?.onboarding_completed);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn("[ONBOARDING_CHECK] query_failed", { message: String(err), userId: user.id });
+        setNeedsOnboarding(true);
         setLoading(false);
       });
   }, [user, authLoading]);

@@ -871,3 +871,101 @@ async def memory_import(
         "facts_invalid": len(invalid),
         "invalid_details": invalid[:20],
     }
+
+
+# ─── Memory Remember (MVP manual /remember command) ──────────
+
+class RememberReq(BaseModel):
+    text: str = Field(min_length=2, max_length=2000)
+
+
+REMEMBER_SYSTEM_PROMPT = (
+    "Você extrai exatamente UM fato estruturado do texto do usuário para salvar "
+    "na memória do LifeOS.\n\n"
+    "Categorias permitidas: personal, professional, project, preference, "
+    "relationship, health, financial, behavioral_pattern, context.\n\n"
+    "Retorne APENAS um objeto JSON válido neste formato exato, sem markdown:\n"
+    '{"category": "<uma das categorias>", "key": "<slug_snake_case_curto>", '
+    '"value": "<o fato completo>"}\n\n'
+    "Regras:\n"
+    "- key: slug curto em snake_case (ex: 'birthday', 'wife_name', 'company_ein', 'home_address')\n"
+    "- value: reproduz o fato como o usuário disse, sem interpretar\n"
+    "- category: escolha a que mais se encaixa\n"
+    "- se o texto não contém fato salvável (é pergunta, comando ou só ruído), "
+    'retorne {"category": null, "key": null, "value": null}'
+)
+
+
+@app.post("/api/memory/remember")
+async def memory_remember(
+    data: RememberReq,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    trace_id = get_trace_id(request)
+    text = data.text.strip()
+    if text.lower().startswith("/remember"):
+        text = text[len("/remember"):].strip()
+    if not text:
+        raise HTTPException(400, "texto vazio após /remember")
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.x.ai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {XAI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "grok-3-fast",
+                "messages": [
+                    {"role": "system", "content": REMEMBER_SYSTEM_PROMPT},
+                    {"role": "user", "content": text},
+                ],
+                "max_tokens": 200,
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            },
+            timeout=30,
+        )
+    if resp.status_code != 200:
+        logger.warning("[TRACE %s] remember.grok.fail status=%s body=%s", trace_id, resp.status_code, resp.text[:200])
+        raise HTTPException(502, "Extração falhou")
+    content = resp.json()["choices"][0]["message"]["content"]
+    try:
+        extracted = json.loads(content)
+    except json.JSONDecodeError:
+        logger.warning("[TRACE %s] remember.parse.fail content=%s", trace_id, content[:200])
+        raise HTTPException(502, "Resposta da extração inválida")
+
+    category = extracted.get("category")
+    key = extracted.get("key")
+    value = extracted.get("value")
+
+    if not category or not key or not value:
+        return {
+            "saved": False,
+            "reason": "texto não contém fato salvável",
+            "echo": text[:200],
+        }
+
+    if category not in ALLOWED_IMPORT_CATEGORIES:
+        raise HTTPException(400, f"categoria inválida: {category}")
+
+    uid = uuid.UUID(user_id)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO user_memory (user_id, category, key, value, source, updated_at)
+               VALUES ($1, $2, $3, $4, 'remember_cmd', now())
+               ON CONFLICT (user_id, category, key)
+               DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source, updated_at = now()""",
+            uid, category, key, value,
+        )
+
+    logger.info(
+        "[TRACE %s] remember.ok user_id=%s category=%s key=%s",
+        trace_id, user_id, category, key,
+    )
+    return {
+        "saved": True,
+        "category": category,
+        "key": key,
+        "value": value,
+    }

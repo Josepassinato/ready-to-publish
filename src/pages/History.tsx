@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,22 +14,16 @@ const History = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
-      let query = supabase
-        .from("decisions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (filter === "SIM" || filter === "NÃO AGORA") {
-        query = query.eq("verdict", filter);
-      }
-
-      const { data } = await query;
-      setDecisions(data || []);
+    const load = async () => {
+      const all = await apiGet<any[]>("/api/decisions").catch(() => []);
+      const filtered =
+        filter === "SIM" || filter === "NÃO AGORA"
+          ? (all || []).filter((d: any) => d.verdict === filter)
+          : all || [];
+      setDecisions(filtered);
       setLoading(false);
     };
-    fetch();
+    load();
   }, [user, filter]);
 
   return (

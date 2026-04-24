@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet, apiPost } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,26 +31,16 @@ const Dashboard = () => {
     if (!user) return;
 
     const fetchData = async () => {
-      const [decisionsRes, plansRes, trendRes] = await Promise.all([
-        supabase
-          .from("decisions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("readiness_plans")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("status", "active")
-          .order("created_at", { ascending: false }),
-        supabase.rpc("get_capacity_trend", { p_user_id: user.id, p_limit: 10 }),
+      const [decisionsAll, plansAll, trendRows] = await Promise.all([
+        apiGet<any[]>("/api/decisions").catch(() => []),
+        apiGet<any[]>("/api/db/readiness_plans?status=active").catch(() => []),
+        apiPost<any[]>("/api/rpc/get_capacity_trend", { p_limit: 10 }).catch(() => []),
       ]);
 
-      setDecisions(decisionsRes.data || []);
-      setPlans(plansRes.data || []);
+      setDecisions((decisionsAll || []).slice(0, 5));
+      setPlans(plansAll || []);
       setTrend(
-        (trendRes.data || [])
+        (trendRows || [])
           .reverse()
           .map((t: any, i: number) => ({
             index: i + 1,

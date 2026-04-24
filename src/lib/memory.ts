@@ -1,20 +1,10 @@
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet, apiPost } from "@/lib/api";
 
-export async function getUserMemoryContext(userId: string): Promise<string> {
-  // Fetch user memory (evolving profile)
-  const { data: memories } = await supabase
-    .from("user_memory")
-    .select("category, key, value")
-    .eq("user_id", userId)
-    .order("category");
-
-  // Fetch recent chat history (last 50 messages)
-  const { data: recentMessages } = await supabase
-    .from("chat_messages")
-    .select("role, content, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
+export async function getUserMemoryContext(_userId: string): Promise<string> {
+  const [memories, recentMessages] = await Promise.all([
+    apiGet<any[]>("/api/db/user_memory?order=category").catch(() => []),
+    apiGet<any[]>("/api/db/chat_messages?limit=50").catch(() => []),
+  ]);
 
   let context = "";
 
@@ -36,7 +26,6 @@ export async function getUserMemoryContext(userId: string): Promise<string> {
 
   if (recentMessages && recentMessages.length > 0) {
     context += "\n## Resumo de Conversas Recentes\n";
-    // Send last 10 as actual context (reversed to chronological)
     const recent = recentMessages.slice(0, 10).reverse();
     for (const m of recent) {
       context += `[${m.role}]: ${m.content.slice(0, 200)}${m.content.length > 200 ? "..." : ""}\n`;
@@ -47,37 +36,32 @@ export async function getUserMemoryContext(userId: string): Promise<string> {
 }
 
 export async function saveChatMessages(
-  userId: string,
+  _userId: string,
   sessionId: string,
   messages: Array<{ role: string; content: string }>
 ) {
   const rows = messages.map((m) => ({
-    user_id: userId,
     session_id: sessionId,
     role: m.role,
     content: m.content,
   }));
 
-  await supabase.from("chat_messages").insert(rows);
+  await apiPost("/api/db/chat_messages", rows).catch((err) =>
+    console.warn("[memory] saveChatMessages failed:", String(err))
+  );
 }
 
 export async function upsertMemory(
-  userId: string,
+  _userId: string,
   entries: Array<{ category: string; key: string; value: string; source?: string }>
 ) {
-  for (const entry of entries) {
-    await supabase
-      .from("user_memory")
-      .upsert(
-        {
-          user_id: userId,
-          category: entry.category,
-          key: entry.key,
-          value: entry.value,
-          source: entry.source || "conversation",
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,category,key" }
-      );
-  }
+  const payload = entries.map((e) => ({
+    category: e.category,
+    key: e.key,
+    value: e.value,
+    source: e.source || "conversation",
+  }));
+  await apiPost("/api/db/user_memory", payload).catch((err) =>
+    console.warn("[memory] upsertMemory failed:", String(err))
+  );
 }

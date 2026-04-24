@@ -8,6 +8,7 @@ import { saveDecision, saveStateClassification } from "@/lib/supabase-utils";
 import { recordPipelineAudit } from "@/lib/audit-logger";
 import { isLLMEnabled, setFeatureFlag, FLAGS } from "@/lib/feature-flags";
 import { getUserMemoryContext, saveChatMessages } from "@/lib/memory";
+import { apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -115,6 +116,47 @@ const Chat = () => {
   const sendMessage = async (text: string) => {
     const trimmedText = text.trim();
     if (!trimmedText || isLoading) return;
+
+    // /remember command: extract a single fact and upsert into user_memory,
+    // bypassing the Grok streaming chat entirely.
+    if (trimmedText.toLowerCase().startsWith("/remember ") || trimmedText.toLowerCase() === "/remember") {
+      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: trimmedText };
+      flushSync(() => setMessages((prev) => [...prev, userMsg]));
+      setInput("");
+      setIsLoading(true);
+      try {
+        const body = trimmedText.slice("/remember".length).trim();
+        if (!body) {
+          setMessages((prev) => [...prev, {
+            id: crypto.randomUUID(), role: "assistant",
+            content: "Uso: `/remember <fato>` — ex: `/remember minha esposa se chama Joana`",
+          }]);
+          return;
+        }
+        const result = await apiPost<{ saved: boolean; category?: string; key?: string; value?: string; reason?: string }>(
+          "/api/memory/remember",
+          { text: body },
+        );
+        const replyContent = result.saved
+          ? `Salvo na memória.\n\n**${result.category} → ${result.key}**: ${result.value}`
+          : `Não salvei — ${result.reason || "texto não parece um fato"}. Tente reformular.`;
+        setMessages((prev) => [...prev, {
+          id: crypto.randomUUID(), role: "assistant", content: replyContent,
+        }]);
+        if (result.saved && user) {
+          // Refresh memory context so Grok sees the new fact in the next chat turn
+          getUserMemoryContext(user.id).then(setMemoryContext).catch(() => {});
+        }
+      } catch (err) {
+        setMessages((prev) => [...prev, {
+          id: crypto.randomUUID(), role: "assistant",
+          content: `Falha ao salvar: ${err instanceof Error ? err.message : String(err)}`,
+        }]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     // Kill-switch: block AI chat when LLM is disabled
     if (!llmEnabled) {

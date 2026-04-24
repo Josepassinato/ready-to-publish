@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { apiGet, apiPost } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
@@ -15,28 +15,27 @@ const Evolution = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fetch = async () => {
-      const [trendRes, decisionsRes] = await Promise.all([
-        supabase.rpc("get_capacity_trend", { p_user_id: user.id, p_limit: 20 }),
-        supabase.from("decisions").select("verdict").eq("user_id", user.id),
+    const load = async () => {
+      const [trendRows, decisions] = await Promise.all([
+        apiPost<any[]>("/api/rpc/get_capacity_trend", { p_limit: 20 }).catch(() => []),
+        apiGet<any[]>("/api/decisions").catch(() => []),
       ]);
 
       setTrend(
-        (trendRes.data || []).reverse().map((t: any, i: number) => ({
+        (trendRows || []).reverse().map((t: any) => ({
           label: new Date(t.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
           score: t.overall_score,
         }))
       );
 
-      const decs = decisionsRes.data || [];
       setVerdicts({
-        sim: decs.filter((d: any) => d.verdict === "SIM").length,
-        nao: decs.filter((d: any) => d.verdict === "NÃO AGORA").length,
+        sim: (decisions || []).filter((d: any) => d.verdict === "SIM").length,
+        nao: (decisions || []).filter((d: any) => d.verdict === "NÃO AGORA").length,
       });
 
       setLoading(false);
     };
-    fetch();
+    load();
   }, [user]);
 
   const pieData = [
